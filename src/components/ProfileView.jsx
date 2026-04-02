@@ -22,11 +22,14 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
   return (
     <div className="min-h-screen bg-black p-4 pb-20">
       <div className="max-w-md mx-auto">
-        <div className="text-center mb-6">
+        <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-white">My Profile</h1>
-          <p className="text-white/60 text-sm mt-1">
-            View and manage your profile
-          </p>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="text-blue-500 text-sm font-semibold hover:text-blue-400 transition-all"
+          >
+            Edit Profile
+          </button>
         </div>
 
         <div className="mb-6">
@@ -111,17 +114,10 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
         </div>
 
         <button
-          onClick={() => setIsEditing(true)}
-          className="w-full bg-blue-500 text-white font-semibold py-3 rounded-xl hover:bg-blue-600 transition-all active:scale-95"
-        >
-          ✏️ Edit Profile
-        </button>
-
-        <button
           onClick={onLogout}
-          className="w-full mt-3 bg-gray-500/20 text-gray-300 font-semibold py-3 rounded-xl border border-gray-500/50 hover:bg-gray-500/30 transition-all active:scale-95"
+          className="w-full bg-gray-500/20 text-gray-300 font-semibold py-3 rounded-xl border border-gray-500/50 hover:bg-gray-500/30 transition-all active:scale-95"
         >
-          🚪 Logout
+          Logout
         </button>
 
         <DeleteAccount userId={userId} onAccountDeleted={onLogout} />
@@ -146,8 +142,7 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
 
         <div className="mt-6 p-4 bg-blue-500/10 rounded-xl border border-blue-500/20">
           <p className="text-blue-400 text-sm text-center">
-            💡 <strong>Pro Tip:</strong> Add more photos and a detailed bio to
-            get more matches!
+            Add more photos and a detailed bio to get more matches
           </p>
         </div>
       </div>

@@ -15,13 +15,11 @@ import {
   getDocs,
   updateDoc,
   arrayUnion,
-  arrayRemove,
   query,
   orderBy,
   onSnapshot,
   addDoc,
   serverTimestamp,
-  where,
   deleteDoc,
 } from "firebase/firestore";
 
@@ -65,7 +63,7 @@ export const getNextProfile = async (currentUserId) => {
       userData.hasProfile === true
     ) {
       const ageDiff = Math.abs(userData.age - currentUser.age);
-      if (ageDiff <= 10) {
+      if (ageDiff <= 5) {
         eligibleUsers.push({
           id: document.id,
           ...userData,
@@ -128,13 +126,18 @@ export const createSwipe = async (swiperId, swipedId, direction) => {
         }),
       });
 
-      await setDoc(doc(db, "chats", matchId), {
-        user1: swiperId,
-        user2: swipedId,
-        createdAt: timestamp,
-        lastMessage: "",
-        lastMessageTime: null,
-      });
+      const chatRef = doc(db, "chats", matchId);
+      const chatDoc = await getDoc(chatRef);
+      if (!chatDoc.exists()) {
+        await setDoc(chatRef, {
+          user1: swiperId,
+          user2: swipedId,
+          createdAt: timestamp,
+          lastMessage: "",
+          lastMessageTime: null,
+          hasMessages: false,
+        });
+      }
 
       return { matched: true, matchId };
     }
@@ -158,14 +161,13 @@ export const sendMessage = async (matchId, senderId, message) => {
     lastMessage: message,
     lastMessageTime: serverTimestamp(),
     lastSenderId: senderId,
+    hasMessages: true,
   });
 
-  const otherUserMatchRef = doc(
-    db,
-    "users",
-    matchId.split("_").find((id) => id !== senderId),
-  );
-  const otherUserDoc = await getDoc(otherUserMatchRef);
+  const otherUserId = matchId.split("_").find((id) => id !== senderId);
+  const otherUserRef = doc(db, "users", otherUserId);
+  const otherUserDoc = await getDoc(otherUserRef);
+
   if (otherUserDoc.exists()) {
     const otherUserData = otherUserDoc.data();
     const updatedMatches = otherUserData.matches.map((m) => {
@@ -174,7 +176,7 @@ export const sendMessage = async (matchId, senderId, message) => {
       }
       return m;
     });
-    await updateDoc(otherUserMatchRef, { matches: updatedMatches });
+    await updateDoc(otherUserRef, { matches: updatedMatches });
   }
 
   return docRef.id;
@@ -182,20 +184,19 @@ export const sendMessage = async (matchId, senderId, message) => {
 
 export const markMessagesAsRead = async (matchId, userId) => {
   const messagesRef = collection(db, "chats", matchId, "messages");
-  const q = query(
-    messagesRef,
-    where("read", "==", false),
-    where("senderId", "!=", userId),
-  );
-  const unreadMessages = await getDocs(q);
+  const q = query(messagesRef, orderBy("timestamp", "asc"));
+  const snapshot = await getDocs(q);
 
   const batch = [];
-  unreadMessages.forEach((document) => {
-    batch.push(
-      updateDoc(doc(db, "chats", matchId, "messages", document.id), {
-        read: true,
-      }),
-    );
+  snapshot.forEach((document) => {
+    const data = document.data();
+    if (data.senderId !== userId && !data.read) {
+      batch.push(
+        updateDoc(doc(db, "chats", matchId, "messages", document.id), {
+          read: true,
+        }),
+      );
+    }
   });
 
   await Promise.all(batch);
@@ -289,10 +290,6 @@ export const listenToChatUpdates = (matchId, callback) => {
   });
 };
 
-export const logoutUser = async () => {
-  await signOut(auth);
-};
-
 export const removeMatch = async (matchId, userId, otherUserId) => {
   const userRef = doc(db, "users", userId);
   const otherUserRef = doc(db, "users", otherUserId);
@@ -316,9 +313,38 @@ export const removeMatch = async (matchId, userId, otherUserId) => {
 
   const chatRef = doc(db, "chats", matchId);
   const chatDoc = await getDoc(chatRef);
+
   if (chatDoc.exists()) {
-    await deleteDoc(chatRef);
+    const chatData = chatDoc.data();
+    if (!chatData.hasMessages) {
+      await deleteDoc(chatRef);
+    }
   }
 
   return true;
+};
+
+export const cleanupUserChats = async (userId) => {
+  const userRef = doc(db, "users", userId);
+  const userDoc = await getDoc(userRef);
+
+  if (userDoc.exists()) {
+    const matches = userDoc.data().matches || [];
+
+    for (const match of matches) {
+      const chatRef = doc(db, "chats", match.id);
+      const chatDoc = await getDoc(chatRef);
+
+      if (chatDoc.exists()) {
+        const chatData = chatDoc.data();
+        if (!chatData.hasMessages) {
+          await deleteDoc(chatRef);
+        }
+      }
+    }
+  }
+};
+
+export const logoutUser = async () => {
+  await signOut(auth);
 };

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { updateProfile } from "firebase/auth";
 
@@ -38,10 +38,7 @@ function ProfileSetup({
       }
 
       const userRef = doc(db, "users", userId);
-
-      const userDoc = await getDoc(userRef);
-
-      const userData = {
+      await updateDoc(userRef, {
         name: formData.name,
         age: parseInt(formData.age),
         gender: formData.gender,
@@ -49,17 +46,7 @@ function ProfileSetup({
         photos: validPhotos,
         hasProfile: true,
         updatedAt: new Date().toISOString(),
-      };
-
-      if (userDoc.exists()) {
-        await updateDoc(userRef, userData);
-      } else {
-        userData.email = auth.currentUser?.email || "";
-        userData.createdAt = new Date().toISOString();
-        userData.swipes = [];
-        userData.matches = [];
-        await setDoc(userRef, userData);
-      }
+      });
 
       onComplete();
     } catch (error) {
@@ -73,13 +60,10 @@ function ProfileSetup({
   return (
     <div className="min-h-screen bg-black p-4 pb-20">
       <div className="max-w-md mx-auto pt-4">
-        <div className="text-center mb-6">
+        <div className="mb-6">
           <h1 className="text-2xl font-bold text-white">
             {isEditing ? "Edit Profile" : "Complete Your Profile"}
           </h1>
-          <p className="text-white/60 text-sm mt-1">
-            {isEditing ? "Update your information" : "Tell us about yourself"}
-          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -212,29 +196,14 @@ function ProfileSetup({
               ? "Saving..."
               : isEditing
                 ? "Update Profile"
-                : "Start Matching →"}
+                : "Start Matching"}
           </button>
         </form>
 
         <div className="mt-6 p-4 bg-white/5 rounded-xl">
           <p className="text-white/60 text-xs text-center">
-            💡 <strong>How to add photos:</strong>
-            <br />
-            Upload images to{" "}
-            <a
-              href="https://imgur.com/upload"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400"
-            >
-              Imgur
-            </a>{" "}
-            or any image hosting service, then paste the direct image URL above.
-            <br />
-            Example:{" "}
-            <code className="text-white/40">
-              https://i.imgur.com/example.jpg
-            </code>
+            Upload images to Imgur or another image host, then paste the direct
+            URL above
           </p>
         </div>
       </div>

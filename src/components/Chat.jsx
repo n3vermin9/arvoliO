@@ -4,6 +4,7 @@ import {
   listenToMessages,
   markMessagesAsRead,
   removeMatch,
+  getUserData,
 } from "../firebase";
 
 function Chat({ match, userId, onBack, onMatchRemoved }) {
@@ -13,8 +14,11 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
   const [sending, setSending] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [otherUserProfile, setOtherUserProfile] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   useEffect(() => {
     setLoading(true);
@@ -72,6 +76,12 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     }
   };
 
+  const viewProfile = async () => {
+    const profile = await getUserData(match.userId);
+    setOtherUserProfile(profile);
+    setShowProfile(true);
+  };
+
   const formatTime = (timestamp) => {
     if (!timestamp) return "";
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -85,6 +95,87 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     if (msg.read) return "✓✓";
     return "✓";
   };
+
+  const hasScrollbar = () => {
+    if (messagesContainerRef.current) {
+      return (
+        messagesContainerRef.current.scrollHeight >
+        messagesContainerRef.current.clientHeight
+      );
+    }
+    return false;
+  };
+
+  if (showProfile && otherUserProfile) {
+    return (
+      <div className="fixed inset-0 bg-black flex flex-col z-50">
+        <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
+          <button
+            onClick={() => setShowProfile(false)}
+            className="text-white text-2xl"
+          >
+            ←
+          </button>
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xl">
+            👤
+          </div>
+          <div>
+            <h2 className="text-white font-semibold">Profile</h2>
+            <p className="text-white/40 text-xs">
+              Viewing {otherUserProfile.name}'s profile
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="max-w-md mx-auto">
+            <div className="bg-white/5 rounded-2xl p-6 space-y-4">
+              {otherUserProfile.photos && otherUserProfile.photos[0] ? (
+                <img
+                  src={otherUserProfile.photos[0]}
+                  alt={otherUserProfile.name}
+                  className="w-32 h-32 rounded-full object-cover mx-auto"
+                />
+              ) : (
+                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-5xl mx-auto">
+                  👤
+                </div>
+              )}
+
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-white">
+                  {otherUserProfile.name}, {otherUserProfile.age}
+                </h2>
+                <p className="text-white/60 text-sm capitalize mt-1">
+                  {otherUserProfile.gender}
+                </p>
+              </div>
+
+              <div className="border-t border-white/10 pt-4">
+                <label className="text-white/40 text-xs uppercase tracking-wider">
+                  Bio
+                </label>
+                <p className="text-white/80 mt-1 leading-relaxed">
+                  {otherUserProfile.bio || "No bio yet"}
+                </p>
+              </div>
+
+              <div className="border-t border-white/10 pt-4">
+                <label className="text-white/40 text-xs uppercase tracking-wider">
+                  Member Since
+                </label>
+                <p className="text-white/60 text-sm mt-1">
+                  {otherUserProfile.createdAt
+                    ? new Date(otherUserProfile.createdAt).toLocaleDateString()
+                    : "Just joined"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -183,22 +274,27 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
           ←
         </button>
 
-        {match.photos && match.photos[0] ? (
-          <img
-            src={match.photos[0]}
-            alt={match.name}
-            className="w-10 h-10 rounded-full object-cover"
-          />
-        ) : (
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xl">
-            👤
-          </div>
-        )}
+        <button
+          onClick={viewProfile}
+          className="flex items-center gap-3 flex-1 active:opacity-70"
+        >
+          {match.photos && match.photos[0] ? (
+            <img
+              src={match.photos[0]}
+              alt={match.name}
+              className="w-10 h-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xl">
+              👤
+            </div>
+          )}
 
-        <div className="flex-1">
-          <h2 className="text-white font-semibold">{match.name}</h2>
-          <p className="text-green-500 text-xs">Online</p>
-        </div>
+          <div className="text-left">
+            <h2 className="text-white font-semibold">{match.name}</h2>
+            <p className="text-green-500 text-xs">Online</p>
+          </div>
+        </button>
 
         <button
           onClick={() => setShowRemoveConfirm(true)}
@@ -209,7 +305,11 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div
+        ref={messagesContainerRef}
+        className={`flex-1 overflow-y-auto p-4 space-y-2 ${!hasScrollbar() ? "scrollbar-hide" : ""}`}
+        style={!hasScrollbar() ? { overflowY: "hidden" } : {}}
+      >
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-white/40">

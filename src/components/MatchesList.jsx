@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   listenToMatches,
   listenToChatUpdates,
   markMessagesAsRead,
+  getUserData,
 } from "../firebase";
 
 function MatchesList({ userId, onSelectMatch }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showProfile, setShowProfile] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const containerRef = useRef(null);
 
-  const truncateText = (text, maxLength = 30) => {
+  const truncateText = (text, maxLength = 25) => {
     if (!text) return "";
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + "...";
@@ -100,6 +104,13 @@ function MatchesList({ userId, onSelectMatch }) {
     onSelectMatch(match);
   };
 
+  const viewProfile = async (match, e) => {
+    e.stopPropagation();
+    const profile = await getUserData(match.userId);
+    setSelectedProfile(profile);
+    setShowProfile(true);
+  };
+
   const formatTime = (timestamp) => {
     if (!timestamp) return "";
     let date;
@@ -130,6 +141,77 @@ function MatchesList({ userId, onSelectMatch }) {
     return "";
   };
 
+  if (showProfile && selectedProfile) {
+    return (
+      <div className="fixed inset-0 bg-black flex flex-col z-50">
+        <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
+          <button
+            onClick={() => setShowProfile(false)}
+            className="text-white text-2xl"
+          >
+            ←
+          </button>
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xl">
+            👤
+          </div>
+          <div>
+            <h2 className="text-white font-semibold">Profile</h2>
+            <p className="text-white/40 text-xs">
+              Viewing {selectedProfile.name}'s profile
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="max-w-md mx-auto">
+            <div className="bg-white/5 rounded-2xl p-6 space-y-4">
+              {selectedProfile.photos && selectedProfile.photos[0] ? (
+                <img
+                  src={selectedProfile.photos[0]}
+                  alt={selectedProfile.name}
+                  className="w-32 h-32 rounded-full object-cover mx-auto"
+                />
+              ) : (
+                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-5xl mx-auto">
+                  👤
+                </div>
+              )}
+
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-white">
+                  {selectedProfile.name}, {selectedProfile.age}
+                </h2>
+                <p className="text-white/60 text-sm capitalize mt-1">
+                  {selectedProfile.gender}
+                </p>
+              </div>
+
+              <div className="border-t border-white/10 pt-4">
+                <label className="text-white/40 text-xs uppercase tracking-wider">
+                  Bio
+                </label>
+                <p className="text-white/80 mt-1 leading-relaxed">
+                  {selectedProfile.bio || "No bio yet"}
+                </p>
+              </div>
+
+              <div className="border-t border-white/10 pt-4">
+                <label className="text-white/40 text-xs uppercase tracking-wider">
+                  Member Since
+                </label>
+                <p className="text-white/60 text-sm mt-1">
+                  {selectedProfile.createdAt
+                    ? new Date(selectedProfile.createdAt).toLocaleDateString()
+                    : "Just joined"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -154,7 +236,7 @@ function MatchesList({ userId, onSelectMatch }) {
   }
 
   return (
-    <div>
+    <div className="overflow-x-hidden">
       <h2 className="text-xl font-bold text-white mb-4">
         Matches ({matches.length})
       </h2>
@@ -163,20 +245,24 @@ function MatchesList({ userId, onSelectMatch }) {
         {matches.map((match) => (
           <div
             key={match.id}
-            onClick={() => handleSelectMatch(match)}
-            className="flex items-center gap-3 p-3 rounded-xl bg-white/5 active:bg-white/10 transition-all cursor-pointer relative"
+            className="flex items-center gap-3 p-3 rounded-xl bg-white/5 active:bg-white/10 transition-all cursor-pointer relative overflow-hidden"
           >
-            {match.photos && match.photos[0] ? (
-              <img
-                src={match.photos[0]}
-                alt={match.name}
-                className="w-14 h-14 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-2xl">
-                👤
-              </div>
-            )}
+            <button
+              onClick={(e) => viewProfile(match, e)}
+              className="flex-shrink-0"
+            >
+              {match.photos && match.photos[0] ? (
+                <img
+                  src={match.photos[0]}
+                  alt={match.name}
+                  className="w-14 h-14 rounded-full object-cover hover:opacity-80 transition-opacity"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-2xl hover:opacity-80 transition-opacity">
+                  👤
+                </div>
+              )}
+            </button>
 
             {match.unreadCount > 0 && (
               <div className="absolute top-2 left-12 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
@@ -184,30 +270,42 @@ function MatchesList({ userId, onSelectMatch }) {
               </div>
             )}
 
-            <div className="flex-1">
+            <div
+              className="flex-1 min-w-0"
+              onClick={() => handleSelectMatch(match)}
+            >
               <div className="flex justify-between items-baseline">
-                <h3 className="font-semibold text-white">{match.name}</h3>
+                <h3 className="font-semibold text-white truncate">
+                  {match.name}
+                </h3>
                 {match.lastMessageTime && (
-                  <span className="text-white/40 text-xs">
+                  <span className="text-white/40 text-xs flex-shrink-0 ml-2">
                     {formatTime(match.lastMessageTime)}
                   </span>
                 )}
               </div>
               <p className="text-white/60 text-sm">{match.age} years old</p>
               {match.lastMessage && (
-                <div className="flex items-center gap-1 mt-1">
+                <div className="flex items-center gap-1 mt-1 min-w-0">
                   {getReadReceipt(match) && (
-                    <span className="text-blue-400 text-xs">
+                    <span className="text-blue-400 text-xs flex-shrink-0">
                       {getReadReceipt(match)}
                     </span>
                   )}
                   <p
                     className={`text-xs truncate ${match.unreadCount > 0 ? "text-white font-medium" : "text-white/40"}`}
                   >
-                    {truncateText(match.lastMessage, 35)}
+                    {truncateText(match.lastMessage, 30)}
                   </p>
                 </div>
               )}
+            </div>
+
+            <div
+              className="text-white/40 text-sm cursor-pointer hover:text-white transition-colors flex-shrink-0"
+              onClick={() => handleSelectMatch(match)}
+            >
+              →
             </div>
           </div>
         ))}

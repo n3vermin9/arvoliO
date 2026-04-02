@@ -121,7 +121,7 @@ function DeleteAccount({ userId, onAccountDeleted }) {
       disabled={deleting}
       className="w-full mt-3 bg-red-500 text-white font-semibold py-3 rounded-xl hover:bg-red-600 transition-all active:scale-95 disabled:opacity-50"
     >
-      {deleting ? "Deleting..." : "🗑️ Delete Account"}
+      {deleting ? "Deleting..." : "Delete Account"}
     </button>
   );
 }
