@@ -7,6 +7,7 @@ import ProfileView from "./components/ProfileView";
 import SwipeCard from "./components/SwipeCard";
 import MatchesList from "./components/MatchesList";
 import Chat from "./components/Chat";
+import logo from "./assets/logo.svg";
 
 function App() {
   const [user, setUser] = useState(null);

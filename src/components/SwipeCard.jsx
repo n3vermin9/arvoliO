@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { getNextProfile, createSwipe } from "../firebase";
+import sadLogo from "../assets/sad.png";
+import starLogo from "../assets/star.png";
 
 function SwipeCard({ userId }) {
   const [profile, setProfile] = useState(null);
@@ -74,22 +76,29 @@ function SwipeCard({ userId }) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[calc(100vh-80px)]">
-        <div className="text-center">
-          <div className="text-4xl mb-4 animate-spin">⏳</div>
-          <p className="text-white/60">Finding people...</p>
-        </div>
+if (loading) {
+  return (
+    <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+      <div className="text-center">
+        <img
+          src={starLogo}
+          className="w-24 h-24 mx-auto animate-spin"
+        />
+        <p className="text-white/60">Finding people...</p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   if (noMore) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-80px)] p-4">
         <div className="text-center">
-          <div className="text-6xl mb-4">🎉</div>
+          <img
+            src={sadLogo}
+            alt="No more profiles"
+            className="w-24 h-24 mx-auto mb-4 grayscale"
+          />
           <h3 className="text-xl font-bold text-white mb-2">
             No more profiles!
           </h3>
@@ -178,7 +187,7 @@ function SwipeCard({ userId }) {
                 {profile.name}, {profile.age}
               </h2>
               <p className="text-white/80 text-sm line-clamp-2">
-                {profile.bio || "New to arvoliO!"}
+                {profile.bio || "New to LeoMatch!"}
               </p>
             </div>
           </div>

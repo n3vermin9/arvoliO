@@ -5,13 +5,14 @@ import {
   markMessagesAsRead,
   getUserData,
 } from "../firebase";
+import sadLogo from "../assets/sad.png";
+import starLogo from "../assets/star.png";
 
 function MatchesList({ userId, onSelectMatch }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showProfile, setShowProfile] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState(null);
-  const containerRef = useRef(null);
 
   const truncateText = (text, maxLength = 25) => {
     if (!text) return "";
@@ -214,9 +215,15 @@ function MatchesList({ userId, onSelectMatch }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div
+        className="absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full text-center"
+        style={{ top: "calc(50% - 40px)" }}
+      >
         <div className="text-center">
-          <div className="text-3xl animate-spin mb-2">💕</div>
+          <img
+            src={starLogo}
+            className="w-24 h-24 mx-auto animate-spin"
+          />
           <p className="text-white/60">Loading matches...</p>
         </div>
       </div>
@@ -225,8 +232,15 @@ function MatchesList({ userId, onSelectMatch }) {
 
   if (matches.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="text-6xl mb-4">😢</div>
+      <div
+        className="absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full text-center"
+        style={{ top: "calc(50% - 40px)" }}
+      >
+        <img
+          src={sadLogo}
+          alt="No matches"
+          className="w-24 h-24 mx-auto mb-4 grayscale"
+        />
         <h3 className="text-xl font-bold text-white mb-2">No matches yet</h3>
         <p className="text-white/60 text-sm">
           Keep swiping to find your perfect match
@@ -236,79 +250,81 @@ function MatchesList({ userId, onSelectMatch }) {
   }
 
   return (
-    <div className="overflow-x-hidden">
-      <h2 className="text-xl font-bold text-white mb-4">
-        Matches ({matches.length})
-      </h2>
+    <div className="h-[calc(100vh-80px)] overflow-y-auto">
+      <div className="overflow-x-hidden pb-4">
+        <h2 className="text-xl font-bold text-white mb-4 sticky top-0 bg-black py-2">
+          Matches ({matches.length})
+        </h2>
 
-      <div className="space-y-2">
-        {matches.map((match) => (
-          <div
-            key={match.id}
-            className="flex items-center gap-3 p-3 rounded-xl bg-white/5 active:bg-white/10 transition-all cursor-pointer relative overflow-hidden"
-          >
-            <button
-              onClick={(e) => viewProfile(match, e)}
-              className="flex-shrink-0"
+        <div className="space-y-2">
+          {matches.map((match) => (
+            <div
+              key={match.id}
+              className="flex items-center gap-3 p-3 rounded-xl bg-white/5 active:bg-white/10 transition-all cursor-pointer relative overflow-hidden"
             >
-              {match.photos && match.photos[0] ? (
-                <img
-                  src={match.photos[0]}
-                  alt={match.name}
-                  className="w-14 h-14 rounded-full object-cover hover:opacity-80 transition-opacity"
-                />
-              ) : (
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-2xl hover:opacity-80 transition-opacity">
-                  👤
+              <button
+                onClick={(e) => viewProfile(match, e)}
+                className="flex-shrink-0"
+              >
+                {match.photos && match.photos[0] ? (
+                  <img
+                    src={match.photos[0]}
+                    alt={match.name}
+                    className="w-14 h-14 rounded-full object-cover hover:opacity-80 transition-opacity"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-2xl hover:opacity-80 transition-opacity">
+                    👤
+                  </div>
+                )}
+              </button>
+
+              {match.unreadCount > 0 && (
+                <div className="absolute top-2 left-12 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                  {match.unreadCount > 9 ? "9+" : match.unreadCount}
                 </div>
               )}
-            </button>
 
-            {match.unreadCount > 0 && (
-              <div className="absolute top-2 left-12 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                {match.unreadCount > 9 ? "9+" : match.unreadCount}
-              </div>
-            )}
-
-            <div
-              className="flex-1 min-w-0"
-              onClick={() => handleSelectMatch(match)}
-            >
-              <div className="flex justify-between items-baseline">
-                <h3 className="font-semibold text-white truncate">
-                  {match.name}
-                </h3>
-                {match.lastMessageTime && (
-                  <span className="text-white/40 text-xs flex-shrink-0 ml-2">
-                    {formatTime(match.lastMessageTime)}
-                  </span>
-                )}
-              </div>
-              <p className="text-white/60 text-sm">{match.age} years old</p>
-              {match.lastMessage && (
-                <div className="flex items-center gap-1 mt-1 min-w-0">
-                  {getReadReceipt(match) && (
-                    <span className="text-blue-400 text-xs flex-shrink-0">
-                      {getReadReceipt(match)}
+              <div
+                className="flex-1 min-w-0"
+                onClick={() => handleSelectMatch(match)}
+              >
+                <div className="flex justify-between items-baseline">
+                  <h3 className="font-semibold text-white truncate">
+                    {match.name}
+                  </h3>
+                  {match.lastMessageTime && (
+                    <span className="text-white/40 text-xs flex-shrink-0 ml-2">
+                      {formatTime(match.lastMessageTime)}
                     </span>
                   )}
-                  <p
-                    className={`text-xs truncate ${match.unreadCount > 0 ? "text-white font-medium" : "text-white/40"}`}
-                  >
-                    {truncateText(match.lastMessage, 30)}
-                  </p>
                 </div>
-              )}
-            </div>
+                <p className="text-white/60 text-sm">{match.age} years old</p>
+                {match.lastMessage && (
+                  <div className="flex items-center gap-1 mt-1 min-w-0">
+                    {getReadReceipt(match) && (
+                      <span className="text-blue-400 text-xs flex-shrink-0">
+                        {getReadReceipt(match)}
+                      </span>
+                    )}
+                    <p
+                      className={`text-xs truncate ${match.unreadCount > 0 ? "text-white font-medium" : "text-white/40"}`}
+                    >
+                      {truncateText(match.lastMessage, 30)}
+                    </p>
+                  </div>
+                )}
+              </div>
 
-            <div
-              className="text-white/40 text-sm cursor-pointer hover:text-white transition-colors flex-shrink-0"
-              onClick={() => handleSelectMatch(match)}
-            >
-              →
+              <div
+                className="text-white/40 text-sm cursor-pointer hover:text-white transition-colors flex-shrink-0"
+                onClick={() => handleSelectMatch(match)}
+              >
+                →
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

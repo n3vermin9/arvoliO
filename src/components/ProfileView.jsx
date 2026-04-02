@@ -1,9 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import ProfileSetup from "./ProfileSetup";
-import DeleteAccount from "./DeleteAccount";
 
 function ProfileView({ userData, userId, onUpdate, onLogout }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
 
   if (isEditing) {
     return (
@@ -15,7 +18,108 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
         }}
         isEditing={true}
         existingData={userData}
+        onLogout={onLogout}
       />
+    );
+  }
+
+  const photos = userData?.photos || [];
+  const hasPhotos = photos.length > 0;
+
+  const nextPhoto = () => {
+    if (hasPhotos && currentPhotoIndex < photos.length - 1) {
+      setCurrentPhotoIndex(currentPhotoIndex + 1);
+    } else if (hasPhotos && currentPhotoIndex === photos.length - 1) {
+      setCurrentPhotoIndex(0);
+    }
+  };
+
+  const prevPhoto = () => {
+    if (hasPhotos && currentPhotoIndex > 0) {
+      setCurrentPhotoIndex(currentPhotoIndex - 1);
+    } else if (hasPhotos && currentPhotoIndex === 0) {
+      setCurrentPhotoIndex(photos.length - 1);
+    }
+  };
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        nextPhoto();
+      } else {
+        prevPhoto();
+      }
+    }
+    touchStartX.current = 0;
+    touchEndX.current = 0;
+  };
+
+  if (isFullScreen && hasPhotos) {
+    return (
+      <div
+        className="fixed inset-0 bg-black z-50 flex items-center justify-center"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={() => setIsFullScreen(false)}
+      >
+        <button
+          onClick={() => setIsFullScreen(false)}
+          className="absolute top-4 left-4 text-white text-2xl z-10 bg-black/50 rounded-full w-10 h-10 flex items-center justify-center"
+        >
+          ←
+        </button>
+        <div className="w-full h-full flex items-center justify-center">
+          <img
+            src={photos[currentPhotoIndex]}
+            alt={`Full screen ${currentPhotoIndex + 1}`}
+            className="max-w-full max-h-full object-contain"
+          />
+        </div>
+        {photos.length > 1 && (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                prevPhoto();
+              }}
+              className="absolute left-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white text-2xl"
+            >
+              ‹
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                nextPhoto();
+              }}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white text-2xl"
+            >
+              ›
+            </button>
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+              {photos.map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`h-1.5 rounded-full transition-all ${
+                    idx === currentPhotoIndex
+                      ? "w-6 bg-white"
+                      : "w-1.5 bg-white/50"
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     );
   }
 
@@ -26,42 +130,43 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
           <h1 className="text-2xl font-bold text-white">My Profile</h1>
           <button
             onClick={() => setIsEditing(true)}
-            className="text-blue-500 text-sm font-semibold hover:text-blue-400 transition-all"
+            className="text-blue-500 text-lg font-semibold hover:text-blue-400 transition-all"
           >
-            Edit Profile
+            Edit
           </button>
         </div>
 
         <div className="mb-6">
-          <label className="text-white/80 text-sm mb-2 block">My Photos</label>
-          <div className="grid grid-cols-3 gap-2">
-            {userData?.photos && userData.photos.length > 0 ? (
-              <>
-                {userData.photos.slice(0, 3).map((photo, index) => (
-                  <div key={index} className="aspect-square">
+          {hasPhotos ? (
+            <div className="flex justify-center gap-3 overflow-x-auto py-2 scrollbar-hide">
+              {photos.map((photo, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    setCurrentPhotoIndex(idx);
+                    setIsFullScreen(true);
+                  }}
+                  className="flex-shrink-0 cursor-pointer"
+                >
+                  <div
+                    className={`w-20 h-20 rounded-full overflow-hidden border-2 ${idx === currentPhotoIndex ? "border-blue-500" : "border-white/20"}`}
+                  >
                     <img
                       src={photo}
-                      alt={`Profile ${index + 1}`}
-                      className="w-full h-full object-cover rounded-xl"
+                      alt={`Profile ${idx + 1}`}
+                      className="w-full h-full object-cover"
                     />
                   </div>
-                ))}
-                {[...Array(3 - userData.photos.length)].map((_, index) => (
-                  <div
-                    key={`empty-${index}`}
-                    className="aspect-square bg-white/5 rounded-xl flex items-center justify-center"
-                  >
-                    <div className="text-white/30 text-2xl">📷</div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <div className="col-span-3 aspect-square bg-white/5 rounded-xl flex flex-col items-center justify-center">
-                <div className="text-6xl mb-2">📷</div>
-                <p className="text-white/40 text-sm">No photos yet</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
+                <div className="text-3xl">📷</div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white/5 rounded-2xl p-6 space-y-4 mb-6">
@@ -97,7 +202,7 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
               Bio
             </label>
             <p className="text-white/80 mt-1 leading-relaxed">
-              {userData?.bio || "No bio yet. Tell us about yourself!"}
+              {userData?.bio || "No bio yet"}
             </p>
           </div>
 
@@ -112,15 +217,6 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
             </p>
           </div>
         </div>
-
-        <button
-          onClick={onLogout}
-          className="w-full bg-gray-500/20 text-gray-300 font-semibold py-3 rounded-xl border border-gray-500/50 hover:bg-gray-500/30 transition-all active:scale-95"
-        >
-          Logout
-        </button>
-
-        <DeleteAccount userId={userId} onAccountDeleted={onLogout} />
 
         <div className="mt-6 bg-white/5 rounded-2xl p-6">
           <h3 className="text-white font-semibold mb-3">Quick Stats</h3>
@@ -145,7 +241,23 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
             Add more photos and a detailed bio to get more matches
           </p>
         </div>
+
+        <button
+          onClick={onLogout}
+          className="w-full mt-6 bg-gray-500/20 text-gray-300 font-semibold py-3 rounded-xl border border-gray-500/50 hover:bg-gray-500/30 transition-all active:scale-95"
+        >
+          Logout
+        </button>
       </div>
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   );
 }

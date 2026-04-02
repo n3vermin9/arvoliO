@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
+import logo from "../assets/logo.svg";
 
 function Login({ onSwitchToRegister }) {
   const [email, setEmail] = useState("");
@@ -20,8 +21,8 @@ function Login({ onSwitchToRegister }) {
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🙋‍♀️</div>
-          <h1 className="text-3xl font-bold text-white">arvoliO</h1>
+          <img src={logo} alt="LeoMatch" className="w-20 h-20 mx-auto mb-4" />
+          <h1 className="text-3xl font-bold text-white">LeoMatch</h1>
           <p className="text-white/60 mt-2">Connect with new people</p>
         </div>
 
@@ -31,7 +32,7 @@ function Login({ onSwitchToRegister }) {
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full telegram-input"
+            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all"
             required
           />
 
@@ -40,7 +41,7 @@ function Login({ onSwitchToRegister }) {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full telegram-input"
+            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all"
             required
           />
 
@@ -50,7 +51,10 @@ function Login({ onSwitchToRegister }) {
             </div>
           )}
 
-          <button type="submit" className="w-full telegram-button">
+          <button
+            type="submit"
+            className="w-full bg-blue-500 text-white font-semibold py-3 rounded-xl hover:bg-blue-600 transition-all"
+          >
             Log In
           </button>
         </form>
