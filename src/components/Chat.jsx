@@ -5,6 +5,7 @@ import {
   markMessagesAsRead,
   removeMatch,
   getUserData,
+  blockUser,
 } from "../firebase";
 
 function Chat({ match, userId, onBack, onMatchRemoved }) {
@@ -13,7 +14,9 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [otherUserProfile, setOtherUserProfile] = useState(null);
   const messagesEndRef = useRef(null);
@@ -40,6 +43,19 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    const checkMatchExists = async () => {
+      const userDoc = await getUserData(userId);
+      const stillMatch = userDoc?.matches?.some((m) => m.id === match.id);
+      if (!stillMatch) {
+        onMatchRemoved();
+      }
+    };
+
+    const interval = setInterval(checkMatchExists, 3000);
+    return () => clearInterval(interval);
+  }, [userId, match.id, onMatchRemoved]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -73,6 +89,18 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
       console.error("Failed to remove match:", error);
       setRemoving(false);
       setShowRemoveConfirm(false);
+    }
+  };
+
+  const handleBlockUser = async () => {
+    setBlocking(true);
+    try {
+      await blockUser(userId, match.userId, match.id);
+      onMatchRemoved();
+    } catch (error) {
+      console.error("Failed to block user:", error);
+      setBlocking(false);
+      setShowBlockConfirm(false);
     }
   };
 
@@ -133,7 +161,6 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
               {otherUserProfile.photos && otherUserProfile.photos[0] ? (
                 <img
                   src={otherUserProfile.photos[0]}
-                  alt={otherUserProfile.name}
                   className="w-32 h-32 rounded-full object-cover mx-auto"
                 />
               ) : (
@@ -170,6 +197,84 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
                     : "Just joined"}
                 </p>
               </div>
+
+              <button
+                onClick={() => {
+                  setShowProfile(false);
+                  setShowBlockConfirm(true);
+                }}
+                className="w-full mt-4 bg-red-500/20 text-red-500 font-semibold py-3 rounded-xl border border-red-500/50 hover:bg-red-500/30 transition-all"
+              >
+                Block User
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showBlockConfirm) {
+    return (
+      <div className="fixed inset-0 bg-black flex flex-col z-50">
+        <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
+          <button
+            onClick={() => setShowBlockConfirm(false)}
+            className="text-white text-2xl"
+          >
+            ←
+          </button>
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-xl">
+            ⚠️
+          </div>
+          <div>
+            <h2 className="text-white font-semibold">Block User</h2>
+            <p className="text-white/40 text-xs">This cannot be undone</p>
+          </div>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="bg-red-500/10 border-2 border-red-500 rounded-2xl p-6 max-w-md w-full">
+            <div className="text-center mb-4">
+              <div className="text-5xl mb-2">🚫</div>
+              <h2 className="text-2xl font-bold text-red-500">
+                Block {match.name}?
+              </h2>
+              <p className="text-white/60 mt-2 text-sm">
+                This will permanently:
+              </p>
+            </div>
+
+            <div className="space-y-2 mb-6">
+              <div className="bg-black/50 rounded-xl p-3">
+                <p className="text-white/80 text-sm">
+                  • Remove them from your matches
+                </p>
+                <p className="text-white/80 text-sm">• Delete all messages</p>
+                <p className="text-white/80 text-sm">
+                  • Prevent them from finding you
+                </p>
+                <p className="text-white/80 text-sm">
+                  • Add them to your blocked list
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBlockConfirm(false)}
+                disabled={blocking}
+                className="flex-1 bg-white/10 text-white font-semibold py-3 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBlockUser}
+                disabled={blocking}
+                className="flex-1 bg-red-500 text-white font-semibold py-3 rounded-xl hover:bg-red-600 transition-all disabled:opacity-50"
+              >
+                {blocking ? "Blocking..." : "Block Forever"}
+              </button>
             </div>
           </div>
         </div>
@@ -281,7 +386,6 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
           {match.photos && match.photos[0] ? (
             <img
               src={match.photos[0]}
-              alt={match.name}
               className="w-10 h-10 rounded-full object-cover"
             />
           ) : (

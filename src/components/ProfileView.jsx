@@ -1,12 +1,18 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import ProfileSetup from "./ProfileSetup";
 
-function ProfileView({ userData, userId, onUpdate, onLogout }) {
+function ProfileView({
+  userData,
+  userId,
+  onUpdate,
+  onLogout,
+  onShowPreviousMatches,
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
+  const touchStartX = React.useRef(0);
+  const touchEndX = React.useRef(0);
 
   if (isEditing) {
     return (
@@ -25,20 +31,18 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
 
   const photos = userData?.photos || [];
   const hasPhotos = photos.length > 0;
+  const previousMatchesCount = userData?.previousMatches?.length || 0;
+  const totalMatches = (userData?.matches?.length || 0) + previousMatchesCount;
 
   const nextPhoto = () => {
     if (hasPhotos && currentPhotoIndex < photos.length - 1) {
       setCurrentPhotoIndex(currentPhotoIndex + 1);
-    } else if (hasPhotos && currentPhotoIndex === photos.length - 1) {
-      setCurrentPhotoIndex(0);
     }
   };
 
   const prevPhoto = () => {
     if (hasPhotos && currentPhotoIndex > 0) {
       setCurrentPhotoIndex(currentPhotoIndex - 1);
-    } else if (hasPhotos && currentPhotoIndex === 0) {
-      setCurrentPhotoIndex(photos.length - 1);
     }
   };
 
@@ -46,11 +50,8 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
     touchStartX.current = e.touches[0].clientX;
   };
 
-  const handleTouchMove = (e) => {
-    touchEndX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e) => {
+    touchEndX.current = e.changedTouches[0].clientX;
     const diff = touchStartX.current - touchEndX.current;
     if (Math.abs(diff) > 50) {
       if (diff > 0) {
@@ -59,8 +60,6 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
         prevPhoto();
       }
     }
-    touchStartX.current = 0;
-    touchEndX.current = 0;
   };
 
   if (isFullScreen && hasPhotos) {
@@ -68,7 +67,9 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
       <div
         className="fixed inset-0 bg-black z-50 flex items-center justify-center"
         onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
+        onTouchMove={(e) => {
+          touchEndX.current = e.touches[0].clientX;
+        }}
         onTouchEnd={handleTouchEnd}
         onClick={() => setIsFullScreen(false)}
       >
@@ -81,7 +82,6 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
         <div className="w-full h-full flex items-center justify-center">
           <img
             src={photos[currentPhotoIndex]}
-            alt={`Full screen ${currentPhotoIndex + 1}`}
             className="max-w-full max-h-full object-contain"
           />
         </div>
@@ -130,7 +130,7 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
           <h1 className="text-2xl font-bold text-white">My Profile</h1>
           <button
             onClick={() => setIsEditing(true)}
-            className="text-blue-500 text-lg font-semibold hover:text-blue-400 transition-all"
+            className="text-blue-500 text-sm font-semibold hover:text-blue-400 transition-all"
           >
             Edit
           </button>
@@ -151,11 +151,7 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
                   <div
                     className={`w-20 h-20 rounded-full overflow-hidden border-2 ${idx === currentPhotoIndex ? "border-blue-500" : "border-white/20"}`}
                   >
-                    <img
-                      src={photo}
-                      alt={`Profile ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={photo} className="w-full h-full object-cover" />
                   </div>
                 </div>
               ))}
@@ -199,6 +195,15 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
 
           <div>
             <label className="text-white/40 text-xs uppercase tracking-wider">
+              Interested In
+            </label>
+            <p className="text-white text-lg font-semibold mt-1 capitalize">
+              {userData?.interestedIn || "Both"}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-white/40 text-xs uppercase tracking-wider">
               Bio
             </label>
             <p className="text-white/80 mt-1 leading-relaxed">
@@ -221,12 +226,15 @@ function ProfileView({ userData, userId, onUpdate, onLogout }) {
         <div className="mt-6 bg-white/5 rounded-2xl p-6">
           <h3 className="text-white font-semibold mb-3">Quick Stats</h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="text-center">
+            <button
+              onClick={onShowPreviousMatches}
+              className="text-center hover:bg-white/10 rounded-xl p-2 transition-all"
+            >
               <div className="text-2xl font-bold text-blue-400">
-                {userData?.matches?.length || 0}
+                {totalMatches}
               </div>
-              <div className="text-white/40 text-xs mt-1">Matches</div>
-            </div>
+              <div className="text-white/40 text-xs mt-1">Total Matches</div>
+            </button>
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-400">
                 {userData?.swipes?.length || 0}

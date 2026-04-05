@@ -49,37 +49,6 @@ function MatchesList({ userId, onSelectMatch }) {
               : m,
           ),
         );
-
-        if (chatUpdate.lastMessage && chatUpdate.lastMessageTime) {
-          let lastMessageTime;
-          if (chatUpdate.lastMessageTime?.toDate) {
-            lastMessageTime = chatUpdate.lastMessageTime.toDate();
-          } else if (chatUpdate.lastMessageTime) {
-            lastMessageTime = new Date(chatUpdate.lastMessageTime);
-          }
-
-          const storedTime = localStorage.getItem(`last_seen_${match.id}`);
-
-          if (
-            lastMessageTime &&
-            (!storedTime || new Date(storedTime) < lastMessageTime)
-          ) {
-            if (Notification.permission === "granted" && document.hidden) {
-              const notification = new Notification(
-                `New message from ${match.name}`,
-                {
-                  body: truncateText(chatUpdate.lastMessage, 50),
-                  icon: match.photos?.[0] || null,
-                },
-              );
-
-              notification.onclick = () => {
-                window.focus();
-                handleSelectMatch(match);
-              };
-            }
-          }
-        }
       });
 
       unsubscribes.push(unsubscribeChat);
@@ -169,7 +138,6 @@ function MatchesList({ userId, onSelectMatch }) {
               {selectedProfile.photos && selectedProfile.photos[0] ? (
                 <img
                   src={selectedProfile.photos[0]}
-                  alt={selectedProfile.name}
                   className="w-32 h-32 rounded-full object-cover mx-auto"
                 />
               ) : (
@@ -215,16 +183,10 @@ function MatchesList({ userId, onSelectMatch }) {
 
   if (loading) {
     return (
-      <div
-        className="absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full text-center"
-        style={{ top: "calc(50% - 40px)" }}
-      >
+      <div className="flex items-center justify-center h-[calc(100vh-80px)] overflow-hidden">
         <div className="text-center">
-          <img
-            src={starLogo}
-            className="w-24 h-24 mx-auto animate-spin"
-          />
-          <p className="text-white/60">Loading matches...</p>
+          <img src={starLogo} className="w-24 h-24 mx-auto animate-spin" />
+          <p className="text-white/60 mt-4">Loading chats...</p>
         </div>
       </div>
     );
@@ -232,19 +194,14 @@ function MatchesList({ userId, onSelectMatch }) {
 
   if (matches.length === 0) {
     return (
-      <div
-        className="absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full text-center"
-        style={{ top: "calc(50% - 40px)" }}
-      >
-        <img
-          src={sadLogo}
-          alt="No matches"
-          className="w-24 h-24 mx-auto mb-4 grayscale"
-        />
-        <h3 className="text-xl font-bold text-white mb-2">No matches yet</h3>
-        <p className="text-white/60 text-sm">
-          Keep swiping to find your perfect match
-        </p>
+      <div className="flex items-center justify-center h-[calc(100vh-80px)] overflow-hidden">
+        <div className="text-center">
+          <img src={sadLogo} className="w-24 h-24 mx-auto mb-4 grayscale" />
+          <h3 className="text-xl font-bold text-white mb-2">No chats yet</h3>
+          <p className="text-white/60 text-sm">
+            When you match with someone, they'll appear here
+          </p>
+        </div>
       </div>
     );
   }
@@ -253,7 +210,7 @@ function MatchesList({ userId, onSelectMatch }) {
     <div className="h-[calc(100vh-80px)] overflow-y-auto">
       <div className="overflow-x-hidden pb-4">
         <h2 className="text-xl font-bold text-white mb-4 sticky top-0 bg-black py-2">
-          Matches ({matches.length})
+          Chats ({matches.length})
         </h2>
 
         <div className="space-y-2">
@@ -269,7 +226,6 @@ function MatchesList({ userId, onSelectMatch }) {
                 {match.photos && match.photos[0] ? (
                   <img
                     src={match.photos[0]}
-                    alt={match.name}
                     className="w-14 h-14 rounded-full object-cover hover:opacity-80 transition-opacity"
                   />
                 ) : (

@@ -15,6 +15,7 @@ function ProfileSetup({
     name: existingData?.name || "",
     age: existingData?.age || 18,
     gender: existingData?.gender || null,
+    interestedIn: existingData?.interestedIn || "both",
     bio: existingData?.bio || "",
     photos: existingData?.photos || [""],
   });
@@ -133,6 +134,7 @@ function ProfileSetup({
         name: formData.name,
         age: parseInt(formData.age),
         gender: formData.gender,
+        interestedIn: formData.interestedIn,
         bio: formData.bio,
         photos: validPhotos,
         hasProfile: true,
@@ -428,6 +430,53 @@ function ProfileSetup({
                 Warning: Gender can only be set once and cannot be changed later
               </p>
             )}
+          </div>
+
+          <div>
+            <label className="text-white/80 text-sm mb-2 block">
+              Interested In
+            </label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData({ ...formData, interestedIn: "male" })
+                }
+                className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                  formData.interestedIn === "male"
+                    ? "bg-blue-500 text-white"
+                    : "bg-white/10 text-white/60 hover:bg-white/20"
+                }`}
+              >
+                Men
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData({ ...formData, interestedIn: "female" })
+                }
+                className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                  formData.interestedIn === "female"
+                    ? "bg-blue-500 text-white"
+                    : "bg-white/10 text-white/60 hover:bg-white/20"
+                }`}
+              >
+                Women
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData({ ...formData, interestedIn: "both" })
+                }
+                className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                  formData.interestedIn === "both"
+                    ? "bg-blue-500 text-white"
+                    : "bg-white/10 text-white/60 hover:bg-white/20"
+                }`}
+              >
+                Both
+              </button>
+            </div>
           </div>
 
           <div>
