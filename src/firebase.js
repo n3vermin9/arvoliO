@@ -54,19 +54,12 @@ export const getNextProfile = async (currentUserId) => {
   const dislikedIds = currentUser.dislikes || [];
   const interestedIn = currentUser.interestedIn || "both";
 
+  const usersWhoAlreadyLikedMe = (currentUser.likesWithMessages || []).map(
+    (like) => like.userId,
+  );
+
   const usersRef = collection(db, "users");
   const querySnapshot = await getDocs(usersRef);
-
-  const usersWhoLikedMe = [];
-  querySnapshot.forEach((document) => {
-    const userData = document.data();
-    if (
-      userData.likesWithMessages &&
-      userData.likesWithMessages.some((like) => like.userId === currentUserId)
-    ) {
-      usersWhoLikedMe.push(document.id);
-    }
-  });
 
   const eligibleUsers = [];
   querySnapshot.forEach((document) => {
@@ -75,7 +68,7 @@ export const getNextProfile = async (currentUserId) => {
       document.id !== currentUserId &&
       !swipedIds.includes(document.id) &&
       !dislikedIds.includes(document.id) &&
-      !usersWhoLikedMe.includes(document.id) &&
+      !usersWhoAlreadyLikedMe.includes(document.id) &&
       userData.hasProfile === true
     ) {
       const ageDiff = Math.abs(userData.age - currentUser.age);

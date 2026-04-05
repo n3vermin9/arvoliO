@@ -235,12 +235,6 @@ function MatchesList({ userId, onSelectMatch }) {
                 )}
               </button>
 
-              {match.unreadCount > 0 && (
-                <div className="absolute top-2 left-12 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                  {match.unreadCount > 9 ? "9+" : match.unreadCount}
-                </div>
-              )}
-
               <div
                 className="flex-1 min-w-0"
                 onClick={() => handleSelectMatch(match)}
@@ -249,13 +243,7 @@ function MatchesList({ userId, onSelectMatch }) {
                   <h3 className="font-semibold text-white truncate">
                     {match.name}
                   </h3>
-                  {match.lastMessageTime && (
-                    <span className="text-white/40 text-xs flex-shrink-0 ml-2">
-                      {formatTime(match.lastMessageTime)}
-                    </span>
-                  )}
                 </div>
-                <p className="text-white/60 text-sm">{match.age} years old</p>
                 {match.lastMessage && (
                   <div className="flex items-center gap-1 mt-1 min-w-0">
                     {getReadReceipt(match) && (
@@ -264,7 +252,7 @@ function MatchesList({ userId, onSelectMatch }) {
                       </span>
                     )}
                     <p
-                      className={`text-xs truncate ${match.unreadCount > 0 ? "text-white font-medium" : "text-white/40"}`}
+                      className={`text-xs font-light truncate ${match.unreadCount > 0 ? "text-white/80" : "text-white/40"}`}
                     >
                       {truncateText(match.lastMessage, 30)}
                     </p>
@@ -272,11 +260,17 @@ function MatchesList({ userId, onSelectMatch }) {
                 )}
               </div>
 
-              <div
-                className="text-white/40 text-sm cursor-pointer hover:text-white transition-colors flex-shrink-0"
-                onClick={() => handleSelectMatch(match)}
-              >
-                →
+              <div className="flex flex-col items-end justify-center gap-0.5">
+                {match.lastMessageTime && (
+                  <span className="text-white/40 text-[10px]">
+                    {formatTime(match.lastMessageTime)}
+                  </span>
+                )}
+                {match.unreadCount > 0 && (
+                  <div className="min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-bold px-1">
+                    {match.unreadCount > 9 ? "9+" : match.unreadCount}
+                  </div>
+                )}
               </div>
             </div>
           ))}

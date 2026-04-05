@@ -8,6 +8,7 @@ import {
 } from "../firebase";
 import sadLogo from "../assets/sad.png";
 import starLogo from "../assets/star.png";
+import toast from "react-hot-toast";
 
 function SwipeCard({ userId }) {
   const [profile, setProfile] = useState(null);
@@ -53,12 +54,7 @@ function SwipeCard({ userId }) {
     if (!profile) return;
 
     if (alreadyLikedMe) {
-      const alert = document.createElement("div");
-      alert.className =
-        "fixed top-20 left-4 right-4 bg-yellow-500 text-white px-6 py-4 rounded-2xl shadow-2xl z-50 text-center";
-      alert.innerHTML = `${profile.name} already liked you! Check your Liked You tab.`;
-      document.body.appendChild(alert);
-      setTimeout(() => alert.remove(), 2000);
+      toast.error(`${profile.name} already liked you! Check Liked You tab.`);
       loadNextProfile();
       return;
     }
@@ -67,17 +63,13 @@ function SwipeCard({ userId }) {
       const result = await createSwipe(userId, profile.id, direction);
 
       if (result.matched) {
-        const matchAlert = document.createElement("div");
-        matchAlert.className =
-          "fixed top-20 left-4 right-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-4 rounded-2xl shadow-2xl z-50 animate-bounce text-center";
-        matchAlert.innerHTML = `It's a match! You matched with ${profile.name}!`;
-        document.body.appendChild(matchAlert);
-        setTimeout(() => matchAlert.remove(), 3000);
+        toast.success(`Matched with ${profile.name}!`);
       }
 
       loadNextProfile();
     } catch (error) {
       console.error("Failed to record swipe:", error);
+      toast.error("Something went wrong");
     }
   };
 
@@ -85,12 +77,7 @@ function SwipeCard({ userId }) {
     if (!profile) return;
 
     if (alreadyLikedMe) {
-      const alert = document.createElement("div");
-      alert.className =
-        "fixed top-20 left-4 right-4 bg-yellow-500 text-white px-6 py-4 rounded-2xl shadow-2xl z-50 text-center";
-      alert.innerHTML = `${profile.name} already liked you! Check your Liked You tab.`;
-      document.body.appendChild(alert);
-      setTimeout(() => alert.remove(), 2000);
+      toast.error(`${profile.name} already liked you! Check Liked You tab.`);
       loadNextProfile();
       return;
     }
@@ -105,24 +92,15 @@ function SwipeCard({ userId }) {
       const result = await sendMessageWithLike(userId, profile.id, messageText);
 
       if (result.matched) {
-        const matchAlert = document.createElement("div");
-        matchAlert.className =
-          "fixed top-20 left-4 right-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-4 rounded-2xl shadow-2xl z-50 animate-bounce text-center";
-        matchAlert.innerHTML = `It's a match! You matched with ${profile.name}!`;
-        document.body.appendChild(matchAlert);
-        setTimeout(() => matchAlert.remove(), 3000);
+        toast.success(`Matched with ${profile.name}!`);
       } else {
-        const alert = document.createElement("div");
-        alert.className =
-          "fixed top-20 left-4 right-4 bg-green-500 text-white px-6 py-4 rounded-2xl shadow-2xl z-50 animate-bounce text-center";
-        alert.innerHTML = `Like sent to ${profile.name} with your message!`;
-        document.body.appendChild(alert);
-        setTimeout(() => alert.remove(), 2000);
+        toast.success(`Like sent to ${profile.name}!`);
       }
 
       loadNextProfile();
     } catch (error) {
       console.error("Failed to send like with message:", error);
+      toast.error("Failed to send like");
     } finally {
       setSending(false);
     }
@@ -130,12 +108,7 @@ function SwipeCard({ userId }) {
 
   const handleDragEnd = (event, info) => {
     if (alreadyLikedMe) {
-      const alert = document.createElement("div");
-      alert.className =
-        "fixed top-20 left-4 right-4 bg-yellow-500 text-white px-6 py-4 rounded-2xl shadow-2xl z-50 text-center";
-      alert.innerHTML = `${profile.name} already liked you! Check your Liked You tab.`;
-      document.body.appendChild(alert);
-      setTimeout(() => alert.remove(), 2000);
+      toast.error(`${profile.name} already liked you! Check Liked You tab.`);
       loadNextProfile();
       return;
     }
@@ -200,12 +173,15 @@ function SwipeCard({ userId }) {
         )}
 
         <motion.div
-          className="w-full cursor-grab active:cursor-grabbing"
-          style={{ x, rotate }}
-          drag="x"
+          className={`w-full ${!alreadyLikedMe ? "cursor-grab active:cursor-grabbing" : "cursor-default opacity-75"}`}
+          style={{
+            x: alreadyLikedMe ? 0 : x,
+            rotate: alreadyLikedMe ? 0 : rotate,
+          }}
+          drag={!alreadyLikedMe ? "x" : false}
           dragConstraints={{ left: 0, right: 0 }}
           onDragEnd={handleDragEnd}
-          whileTap={{ cursor: "grabbing" }}
+          whileTap={!alreadyLikedMe ? { cursor: "grabbing" } : {}}
         >
           <div className="relative bg-gradient-to-br from-gray-900 to-black rounded-2xl overflow-hidden border border-white/10">
             <div className="aspect-[3/4]">
@@ -270,7 +246,7 @@ function SwipeCard({ userId }) {
                 {profile.name}, {profile.age}
               </h2>
               <p className="text-white/80 text-sm line-clamp-2">
-                {profile.bio || "New to LeoMatch!"}
+                {profile.bio || "New to ArvoliO!"}
               </p>
             </div>
           </div>
@@ -307,7 +283,8 @@ function SwipeCard({ userId }) {
           <div className="flex justify-center gap-4 mt-6">
             <button
               onClick={() => handleSwipe("pass")}
-              className="w-14 h-14 rounded-full bg-red-500/20 backdrop-blur border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
+              disabled={alreadyLikedMe}
+              className="w-14 h-14 rounded-full bg-red-500/20 backdrop-blur border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg
                 className="w-7 h-7"
@@ -327,7 +304,7 @@ function SwipeCard({ userId }) {
             <button
               onClick={() => setShowMessageInput(true)}
               disabled={alreadyLikedMe}
-              className="w-14 h-14 rounded-full bg-blue-500/20 backdrop-blur border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all active:scale-95 flex items-center justify-center disabled:opacity-50"
+              className="w-14 h-14 rounded-full bg-blue-500/20 backdrop-blur border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg
                 className="w-7 h-7"
@@ -347,7 +324,7 @@ function SwipeCard({ userId }) {
             <button
               onClick={() => handleSwipe("like")}
               disabled={alreadyLikedMe}
-              className="w-14 h-14 rounded-full bg-green-500/20 backdrop-blur border-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-white transition-all active:scale-95 flex items-center justify-center disabled:opacity-50"
+              className="w-14 h-14 rounded-full bg-green-500/20 backdrop-blur border-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-white transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />

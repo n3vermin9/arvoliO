@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Toaster, toast } from "react-hot-toast";
 import {
   auth,
   logoutUser,
@@ -68,22 +69,23 @@ function App() {
         },
       );
 
-      const unsubscribeLikes = listenToNewLikes(user.uid, (users) => {
-        const newLikeCount = users.length;
+      const unsubscribeLikes = listenToNewLikes(user.uid, (likes) => {
+        const newLikeCount = likes.length;
 
         if (newLikeCount > previousLikeCount && document.hidden) {
           const difference = newLikeCount - previousLikeCount;
-          const notification = new Notification("Someone liked you!", {
-            body: `${difference} new like${difference > 1 ? "s" : ""}`,
-            icon: "/logo.png",
+          toast.success(`${difference} new like${difference > 1 ? "s" : ""}!`, {
+            duration: 4000,
+            position: "top-center",
+            icon: "❤️",
+            onClick: () => {
+              window.focus();
+              setCurrentView("liked");
+            },
           });
-          notification.onclick = () => {
-            window.focus();
-            setCurrentView("liked");
-          };
         }
 
-        setLikedByUsers(users);
+        setLikedByUsers(likes);
         setPreviousLikeCount(newLikeCount);
       });
 
@@ -99,6 +101,7 @@ function App() {
       const unsubscribeMatches = listenToMatches(user.uid, (matches) => {
         const stillMatch = matches.some((m) => m.id === selectedMatch.id);
         if (!stillMatch) {
+          toast.error("This match has been removed");
           setSelectedMatch(null);
           setCurrentView("matches");
         }
@@ -109,12 +112,14 @@ function App() {
 
   const handleLogout = async () => {
     await logoutUser();
+    toast.success("Logged out successfully");
   };
 
   const handleProfileComplete = async () => {
     const data = await getUserData(user.uid);
     setUserData(data);
     setNeedsProfile(false);
+    toast.success("Profile created!");
   };
 
   const refreshProfile = async () => {
@@ -155,6 +160,30 @@ function App() {
 
   return (
     <div className="min-h-screen bg-black overflow-hidden">
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: {
+            background: "#1a1a1a",
+            color: "#fff",
+            border: "1px solid #333",
+            borderRadius: "12px",
+          },
+          success: {
+            iconTheme: {
+              primary: "#10b981",
+              secondary: "#fff",
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: "#ef4444",
+              secondary: "#fff",
+            },
+          },
+        }}
+      />
+
       <nav className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-white/10 z-50 safe-area-bottom">
         <div className="flex justify-around items-center py-2">
           <button
