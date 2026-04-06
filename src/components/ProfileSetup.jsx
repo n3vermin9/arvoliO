@@ -25,6 +25,7 @@ function ProfileSetup({
   const [startAge, setStartAge] = useState(formData.age);
   const [showPhoto2, setShowPhoto2] = useState(!!formData.photos[1]);
   const [showPhoto3, setShowPhoto3] = useState(!!formData.photos[2]);
+  const [showInfoModal, setShowInfoModal] = useState(false);
   const scrollRef = useRef(null);
   const isFirstTime = !existingData?.gender;
 
@@ -164,12 +165,48 @@ function ProfileSetup({
   const isGenderLocked = !isFirstTime && formData.gender;
 
   return (
-    <div className="min-h-screen bg-black p-4 pb-20">
+    <div className="min-h-screen bg-black p-4 pt-0 pb-6">
+      {showInfoModal && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowInfoModal(false)}
+        >
+          <div
+            className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-white font-bold text-lg mb-2">
+              About "Both" option
+            </h3>
+            <p className="text-white/60 text-sm mb-4">
+              Selecting "Both" allows you to see and match with people of any
+              gender. This is great for making friends, networking, or keeping
+              your options open. You'll appear in feeds of users who selected
+              "Both" or your specific gender.
+            </p>
+            <button
+              onClick={() => setShowInfoModal(false)}
+              className="w-full bg-blue-500 text-white font-semibold py-2 rounded-xl"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-md mx-auto pt-4">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-xl font-bold text-white">
             {isEditing ? "Edit Profile" : "Complete Your Profile"}
           </h1>
+          {isEditing && (
+            <button
+              onClick={onComplete}
+              className="text-blue-500 text-sm font-semibold hover:text-blue-400 transition-all"
+            >
+              Cancel
+            </button>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -433,9 +470,16 @@ function ProfileSetup({
           </div>
 
           <div>
-            <label className="text-white/80 text-sm mb-2 block">
-              Interested In
-            </label>
+            <div className="flex items-center gap-2 mb-2">
+              <label className="text-white/80 text-sm">Interested In</label>
+              <button
+                type="button"
+                onClick={() => setShowInfoModal(true)}
+                className="w-4 h-4 rounded-full bg-white/20 text-white/60 text-[10px] flex items-center justify-center hover:bg-white/30 transition-all"
+              >
+                i
+              </button>
+            </div>
             <div className="flex gap-3">
               <button
                 type="button"

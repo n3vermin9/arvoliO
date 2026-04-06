@@ -62,9 +62,22 @@ function LikedYou({ userId, onMatch }) {
         <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
           <button
             onClick={() => setShowProfile(false)}
-            className="text-white text-2xl"
+            className="text-white text-2xl flex items-center gap-1"
           >
-            ←
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+            <span className="text-sm">Back</span>
           </button>
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xl">
             👤
@@ -153,9 +166,9 @@ function LikedYou({ userId, onMatch }) {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-xl font-bold text-white mb-4">
+      <h1 className="text-xl font-bold text-white">
         Liked You ({likedByUsers.length})
-      </h2>
+      </h1>
       {likedByUsers.map((user) => (
         <div key={user.userId} className="bg-white/5 rounded-xl p-4">
           <div className="flex items-center gap-4">

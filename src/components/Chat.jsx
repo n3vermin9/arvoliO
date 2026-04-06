@@ -7,6 +7,7 @@ import {
   getUserData,
   blockUser,
 } from "../firebase";
+import EmojiPicker from "emoji-picker-react";
 
 function Chat({ match, userId, onBack, onMatchRemoved }) {
   const [messages, setMessages] = useState([]);
@@ -19,6 +20,7 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
   const [blocking, setBlocking] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [otherUserProfile, setOtherUserProfile] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -43,19 +45,6 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  useEffect(() => {
-    const checkMatchExists = async () => {
-      const userDoc = await getUserData(userId);
-      const stillMatch = userDoc?.matches?.some((m) => m.id === match.id);
-      if (!stillMatch) {
-        onMatchRemoved();
-      }
-    };
-
-    const interval = setInterval(checkMatchExists, 3000);
-    return () => clearInterval(interval);
-  }, [userId, match.id, onMatchRemoved]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -110,6 +99,12 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     setShowProfile(true);
   };
 
+  const onEmojiClick = (emojiObject) => {
+    setNewMessage((prev) => prev + emojiObject.emoji);
+    setShowEmojiPicker(false);
+    inputRef.current?.focus();
+  };
+
   const formatTime = (timestamp) => {
     if (!timestamp) return "";
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -134,85 +129,73 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     return false;
   };
 
-  if (showProfile && otherUserProfile) {
-    return (
-      <div className="fixed inset-0 bg-black flex flex-col z-50">
-        <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => setShowProfile(false)}
-            className="text-white text-2xl"
-          >
-            ←
-          </button>
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xl">
-            👤
-          </div>
-          <div>
-            <h2 className="text-white font-semibold">Profile</h2>
-            <p className="text-white/40 text-xs">
-              Viewing {otherUserProfile.name}'s profile
+if (showProfile && otherUserProfile) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+      onClick={() => setShowProfile(false)}
+    >
+      <div
+        className="bg-white/5 rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6 space-y-4">
+          {otherUserProfile.photos && otherUserProfile.photos[0] ? (
+            <img
+              src={otherUserProfile.photos[0]}
+              className="w-32 h-32 rounded-full object-cover mx-auto"
+            />
+          ) : (
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-5xl mx-auto">
+              👤
+            </div>
+          )}
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-white">
+              {otherUserProfile.name}, {otherUserProfile.age}
+            </h2>
+            <p className="text-white/60 text-sm capitalize mt-1">
+              {otherUserProfile.gender}
             </p>
           </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="max-w-md mx-auto">
-            <div className="bg-white/5 rounded-2xl p-6 space-y-4">
-              {otherUserProfile.photos && otherUserProfile.photos[0] ? (
-                <img
-                  src={otherUserProfile.photos[0]}
-                  className="w-32 h-32 rounded-full object-cover mx-auto"
-                />
-              ) : (
-                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-5xl mx-auto">
-                  👤
-                </div>
-              )}
-
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-white">
-                  {otherUserProfile.name}, {otherUserProfile.age}
-                </h2>
-                <p className="text-white/60 text-sm capitalize mt-1">
-                  {otherUserProfile.gender}
-                </p>
-              </div>
-
-              <div className="border-t border-white/10 pt-4">
-                <label className="text-white/40 text-xs uppercase tracking-wider">
-                  Bio
-                </label>
-                <p className="text-white/80 mt-1 leading-relaxed">
-                  {otherUserProfile.bio || "No bio yet"}
-                </p>
-              </div>
-
-              <div className="border-t border-white/10 pt-4">
-                <label className="text-white/40 text-xs uppercase tracking-wider">
-                  Member Since
-                </label>
-                <p className="text-white/60 text-sm mt-1">
-                  {otherUserProfile.createdAt
-                    ? new Date(otherUserProfile.createdAt).toLocaleDateString()
-                    : "Just joined"}
-                </p>
-              </div>
-
-              <button
-                onClick={() => {
-                  setShowProfile(false);
-                  setShowBlockConfirm(true);
-                }}
-                className="w-full mt-4 bg-red-500/20 text-red-500 font-semibold py-3 rounded-xl border border-red-500/50 hover:bg-red-500/30 transition-all"
-              >
-                Block User
-              </button>
-            </div>
+          <div className="border-t border-white/10 pt-4">
+            <label className="text-white/40 text-xs uppercase tracking-wider">
+              Bio
+            </label>
+            <p className="text-white/80 mt-1 leading-relaxed">
+              {otherUserProfile.bio || "No bio yet"}
+            </p>
           </div>
+          <div className="border-t border-white/10 pt-4">
+            <label className="text-white/40 text-xs uppercase tracking-wider">
+              Member Since
+            </label>
+            <p className="text-white/60 text-sm mt-1">
+              {otherUserProfile.createdAt
+                ? new Date(otherUserProfile.createdAt).toLocaleDateString()
+                : "Just joined"}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setShowProfile(false);
+              setShowBlockConfirm(true);
+            }}
+            className="w-full mt-2 bg-red-500/20 text-red-500 font-semibold py-2 rounded-xl  hover:bg-red-500/30 transition-all"
+          >
+            Block User
+          </button>
+          <button
+            onClick={() => setShowProfile(false)}
+            className="w-full mt-2 bg-blue-500/20 text-blue-400 font-semibold py-2 rounded-xl hover:bg-blue-500/30 transition-all"
+          >
+            Close
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   if (showBlockConfirm) {
     return (
@@ -220,9 +203,21 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
         <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
           <button
             onClick={() => setShowBlockConfirm(false)}
-            className="text-white text-2xl"
+            className="text-white flex items-center"
           >
-            ←
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
           </button>
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-xl">
             ⚠️
@@ -286,8 +281,20 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     return (
       <div className="fixed inset-0 bg-black flex flex-col z-50">
         <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
-          <button onClick={onBack} className="text-white text-2xl">
-            ←
+          <button onClick={onBack} className="text-white flex items-center">
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
           </button>
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 animate-pulse" />
           <div>
@@ -308,9 +315,21 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
         <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
           <button
             onClick={() => setShowRemoveConfirm(false)}
-            className="text-white text-2xl"
+            className="text-white flex items-center"
           >
-            ←
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
           </button>
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-xl">
             ⚠️
@@ -372,11 +391,20 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
   return (
     <div className="fixed inset-0 bg-black flex flex-col z-50">
       <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="text-white text-2xl active:opacity-50"
-        >
-          ←
+        <button onClick={onBack} className="text-white flex items-center">
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
         </button>
 
         <button
@@ -459,8 +487,30 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
 
       <form
         onSubmit={handleSendMessage}
-        className="p-4 border-t border-white/10 flex gap-2 bg-black"
+        className="p-4 border-t border-white/10 flex gap-2 bg-black relative"
       >
+        <button
+          type="button"
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          className="bg-white/10 hover:bg-white/20 rounded-full w-10 h-10 flex items-center justify-center transition-all text-xl"
+        >
+          😊
+        </button>
+
+        {showEmojiPicker && (
+          <div className="absolute bottom-16 left-4 z-50">
+            <EmojiPicker
+              onEmojiClick={onEmojiClick}
+              width={300}
+              height={400}
+              theme="dark"
+              previewConfig={{ showPreview: false }}
+              searchPlaceholder="Search emojis..."
+              skinTonesDisabled={true}
+            />
+          </div>
+        )}
+
         <input
           ref={inputRef}
           type="text"

@@ -34,8 +34,24 @@ function PreviousMatches({ userId, onBack }) {
     );
   }
 
-  if (previousMatches.length === 0) {
-    return (
+if (previousMatches.length === 0) {
+  return (
+    <div className="min-h-screen bg-black">
+      <button onClick={onBack} className="absolute top-4 left-4 text-blue-500">
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 19l-7-7 7-7"
+          />
+        </svg>
+      </button>
       <div className="flex items-center justify-center h-[calc(100vh-80px)] overflow-hidden">
         <div className="text-center">
           <img src={sadLogo} className="w-24 h-24 mx-auto mb-4 grayscale" />
@@ -45,22 +61,38 @@ function PreviousMatches({ userId, onBack }) {
           <p className="text-white/60 text-sm">
             People you unmatched will appear here
           </p>
-          <button onClick={onBack} className="mt-6 text-blue-500 font-semibold">
-            ← Back to Profile
-          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-black p-4">
       <div className="max-w-md mx-auto">
         <div className="flex items-center gap-4 mb-6">
-          <button onClick={onBack} className="text-white text-2xl">
-            ←
+          <button
+            onClick={onBack}
+            className="text-white text-2xl flex items-center gap-1"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+            <span className="text-sm">Back</span>
           </button>
-          <h1 className="text-2xl font-bold text-white">Previous Matches</h1>
+          <h1 className="text-xl font-bold text-white">
+            Previous Matches
+          </h1>{" "}
         </div>
 
         <div className="space-y-3">

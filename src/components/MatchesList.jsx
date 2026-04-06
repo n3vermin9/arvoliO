@@ -111,75 +111,64 @@ function MatchesList({ userId, onSelectMatch }) {
     return "";
   };
 
-  if (showProfile && selectedProfile) {
-    return (
-      <div className="fixed inset-0 bg-black flex flex-col z-50">
-        <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => setShowProfile(false)}
-            className="text-white text-2xl"
-          >
-            ←
-          </button>
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xl">
-            👤
-          </div>
-          <div>
-            <h2 className="text-white font-semibold">Profile</h2>
-            <p className="text-white/40 text-xs">
-              Viewing {selectedProfile.name}'s profile
+if (showProfile && selectedProfile) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+      onClick={() => setShowProfile(false)}
+    >
+      <div
+        className="bg-white/5 rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6 space-y-4">
+          {selectedProfile.photos && selectedProfile.photos[0] ? (
+            <img
+              src={selectedProfile.photos[0]}
+              className="w-32 h-32 rounded-full object-cover mx-auto"
+            />
+          ) : (
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-5xl mx-auto">
+              👤
+            </div>
+          )}
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-white">
+              {selectedProfile.name}, {selectedProfile.age}
+            </h2>
+            <p className="text-white/60 text-sm capitalize mt-1">
+              {selectedProfile.gender}
             </p>
           </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="max-w-md mx-auto">
-            <div className="bg-white/5 rounded-2xl p-6 space-y-4">
-              {selectedProfile.photos && selectedProfile.photos[0] ? (
-                <img
-                  src={selectedProfile.photos[0]}
-                  className="w-32 h-32 rounded-full object-cover mx-auto"
-                />
-              ) : (
-                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-5xl mx-auto">
-                  👤
-                </div>
-              )}
-
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-white">
-                  {selectedProfile.name}, {selectedProfile.age}
-                </h2>
-                <p className="text-white/60 text-sm capitalize mt-1">
-                  {selectedProfile.gender}
-                </p>
-              </div>
-
-              <div className="border-t border-white/10 pt-4">
-                <label className="text-white/40 text-xs uppercase tracking-wider">
-                  Bio
-                </label>
-                <p className="text-white/80 mt-1 leading-relaxed">
-                  {selectedProfile.bio || "No bio yet"}
-                </p>
-              </div>
-
-              <div className="border-t border-white/10 pt-4">
-                <label className="text-white/40 text-xs uppercase tracking-wider">
-                  Member Since
-                </label>
-                <p className="text-white/60 text-sm mt-1">
-                  {selectedProfile.createdAt
-                    ? new Date(selectedProfile.createdAt).toLocaleDateString()
-                    : "Just joined"}
-                </p>
-              </div>
-            </div>
+          <div className="border-t border-white/10 pt-4">
+            <label className="text-white/40 text-xs uppercase tracking-wider">
+              Bio
+            </label>
+            <p className="text-white/80 mt-1 leading-relaxed">
+              {selectedProfile.bio || "No bio yet"}
+            </p>
           </div>
+          <div className="border-t border-white/10 pt-4">
+            <label className="text-white/40 text-xs uppercase tracking-wider">
+              Member Since
+            </label>
+            <p className="text-white/60 text-sm mt-1">
+              {selectedProfile.createdAt
+                ? new Date(selectedProfile.createdAt).toLocaleDateString()
+                : "Just joined"}
+            </p>
+          </div>
+          <button
+            onClick={() => setShowProfile(false)}
+            className="w-full mt-2 bg-blue-500/20 text-blue-400 font-semibold py-2 rounded-xl hover:bg-blue-500/30 transition-all"
+          >
+            Close
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   if (loading) {
     return (
@@ -209,9 +198,9 @@ function MatchesList({ userId, onSelectMatch }) {
   return (
     <div className="h-[calc(100vh-80px)] overflow-y-auto">
       <div className="overflow-x-hidden pb-4">
-        <h2 className="text-xl font-bold text-white mb-4 sticky top-0 bg-black py-2">
+        <h1 className="text-xl font-bold text-white pb-4">
           Chats ({matches.length})
-        </h2>
+        </h1>
 
         <div className="space-y-2">
           {matches.map((match) => (

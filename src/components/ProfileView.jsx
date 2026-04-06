@@ -62,22 +62,30 @@ function ProfileView({
     }
   };
 
-  if (isFullScreen && hasPhotos) {
-    return (
-      <div
-        className="fixed inset-0 bg-black z-50 flex items-center justify-center"
-        onTouchStart={handleTouchStart}
-        onTouchMove={(e) => {
-          touchEndX.current = e.touches[0].clientX;
-        }}
-        onTouchEnd={handleTouchEnd}
-        onClick={() => setIsFullScreen(false)}
-      >
+if (isFullScreen && hasPhotos) {
+  return (
+    <div
+      className="fixed inset-0 bg-black z-50 flex items-center justify-center"
+      onClick={() => setIsFullScreen(false)}
+    >
+      <div onClick={(e) => e.stopPropagation()}>
         <button
           onClick={() => setIsFullScreen(false)}
           className="absolute top-4 left-4 text-white text-2xl z-10 bg-black/50 rounded-full w-10 h-10 flex items-center justify-center"
         >
-          ←
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
         </button>
         <div className="w-full h-full flex items-center justify-center">
           <img
@@ -109,25 +117,22 @@ function ProfileView({
               {photos.map((_, idx) => (
                 <div
                   key={idx}
-                  className={`h-1.5 rounded-full transition-all ${
-                    idx === currentPhotoIndex
-                      ? "w-6 bg-white"
-                      : "w-1.5 bg-white/50"
-                  }`}
+                  className={`h-1.5 rounded-full transition-all ${idx === currentPhotoIndex ? "w-6 bg-white" : "w-1.5 bg-white/50"}`}
                 />
               ))}
             </div>
           </>
         )}
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-black p-4 pb-20">
       <div className="max-w-md mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-white">My Profile</h1>
+          <h1 className="text-xl font-bold text-white">My Profile</h1>{" "}
           <button
             onClick={() => setIsEditing(true)}
             className="text-blue-500 text-sm font-semibold hover:text-blue-400 transition-all"
