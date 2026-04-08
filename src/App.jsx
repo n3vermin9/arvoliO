@@ -17,6 +17,7 @@ import MatchesList from "./components/MatchesList";
 import Chat from "./components/Chat";
 import LikedYou from "./components/LikedYou";
 import PreviousMatches from "./components/PreviousMatches";
+import SkeletonLoader from "./components/SkeletonLoader";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -31,6 +32,7 @@ function App() {
   const [showPreviousMatches, setShowPreviousMatches] = useState(false);
   const [likedByUsers, setLikedByUsers] = useState([]);
   const [previousLikeCount, setPreviousLikeCount] = useState(0);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
@@ -58,6 +60,14 @@ function App() {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      Promise.all([getUserData(user.uid)]).finally(() =>
+        setInitialLoading(false),
+      );
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -140,6 +150,14 @@ function App() {
       <Register onSwitchToLogin={() => setShowRegister(false)} />
     ) : (
       <Login onSwitchToRegister={() => setShowRegister(true)} />
+    );
+  }
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-black p-4">
+        <SkeletonLoader />
+      </div>
     );
   }
 

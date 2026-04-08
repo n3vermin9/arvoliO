@@ -17,14 +17,12 @@ function ProfileSetup({
     gender: existingData?.gender || null,
     interestedIn: existingData?.interestedIn || "both",
     bio: existingData?.bio || "",
-    photos: existingData?.photos || [""],
+    photos: existingData?.photos || [],
   });
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [startAge, setStartAge] = useState(formData.age);
-  const [showPhoto2, setShowPhoto2] = useState(!!formData.photos[1]);
-  const [showPhoto3, setShowPhoto3] = useState(!!formData.photos[2]);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const scrollRef = useRef(null);
   const isFirstTime = !existingData?.gender;
@@ -32,35 +30,23 @@ function ProfileSetup({
   const updatePhotoUrl = (index, url) => {
     const newPhotos = [...formData.photos];
     newPhotos[index] = url;
+    setFormData({
+      ...formData,
+      photos: newPhotos.filter((p) => p && p.trim() !== ""),
+    });
+  };
+
+  const addPhotoSlot = () => {
+    if (formData.photos.length < 3) {
+      setFormData({ ...formData, photos: [...formData.photos, ""] });
+    }
+  };
+
+  const removeImage = (indexToRemove) => {
+    const newPhotos = formData.photos.filter(
+      (_, index) => index !== indexToRemove,
+    );
     setFormData({ ...formData, photos: newPhotos });
-  };
-
-  const addPhotoSlot = (slot) => {
-    if (slot === 2 && !showPhoto2) {
-      setShowPhoto2(true);
-      const newPhotos = [...formData.photos];
-      newPhotos[1] = "";
-      setFormData({ ...formData, photos: newPhotos });
-    } else if (slot === 3 && !showPhoto3) {
-      setShowPhoto3(true);
-      const newPhotos = [...formData.photos];
-      newPhotos[2] = "";
-      setFormData({ ...formData, photos: newPhotos });
-    }
-  };
-
-  const removePhotoSlot = (slot) => {
-    if (slot === 2) {
-      setShowPhoto2(false);
-      const newPhotos = [...formData.photos];
-      newPhotos[1] = "";
-      setFormData({ ...formData, photos: newPhotos });
-    } else if (slot === 3) {
-      setShowPhoto3(false);
-      const newPhotos = [...formData.photos];
-      newPhotos[2] = "";
-      setFormData({ ...formData, photos: newPhotos });
-    }
   };
 
   const handleTouchStart = (e) => {
@@ -215,43 +201,12 @@ function ProfileSetup({
               Profile Photos
             </label>
             <div className="grid grid-cols-3 gap-2 mb-3">
-              <div className="relative aspect-square">
-                {formData.photos[0] ? (
-                  <>
-                    <img
-                      src={formData.photos[0]}
-                      alt="Main photo"
-                      className="w-full h-full object-cover rounded-xl"
-                      onError={(e) => {
-                        e.target.src =
-                          "https://via.placeholder.com/150?text=Invalid+URL";
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => updatePhotoUrl(0, "")}
-                      className="absolute top-1 right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs"
-                    >
-                      ×
-                    </button>
-                  </>
-                ) : (
-                  <div className="w-full h-full bg-white/10 rounded-xl flex items-center justify-center border-2 border-dashed border-white/30">
-                    <div className="text-center">
-                      <div className="text-2xl mb-1">📷</div>
-                      <div className="text-white/40 text-xs">Main Photo</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {showPhoto2 && (
-                <div className="relative aspect-square">
-                  {formData.photos[1] ? (
+              {[0, 1, 2].map((index) => (
+                <div key={index} className="relative aspect-square">
+                  {formData.photos[index] ? (
                     <>
                       <img
-                        src={formData.photos[1]}
-                        alt="Photo 2"
+                        src={formData.photos[index]}
                         className="w-full h-full object-cover rounded-xl"
                         onError={(e) => {
                           e.target.src =
@@ -260,7 +215,7 @@ function ProfileSetup({
                       />
                       <button
                         type="button"
-                        onClick={() => removePhotoSlot(2)}
+                        onClick={() => removeImage(index)}
                         className="absolute top-1 right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs"
                       >
                         ×
@@ -270,96 +225,36 @@ function ProfileSetup({
                     <div className="w-full h-full bg-white/10 rounded-xl flex items-center justify-center border-2 border-dashed border-white/30">
                       <div className="text-center">
                         <div className="text-2xl mb-1">📷</div>
-                        <div className="text-white/40 text-xs">Photo 2</div>
+                        <div className="text-white/40 text-xs">
+                          Photo {index + 1}
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
-              )}
-
-              {showPhoto3 && (
-                <div className="relative aspect-square">
-                  {formData.photos[2] ? (
-                    <>
-                      <img
-                        src={formData.photos[2]}
-                        alt="Photo 3"
-                        className="w-full h-full object-cover rounded-xl"
-                        onError={(e) => {
-                          e.target.src =
-                            "https://via.placeholder.com/150?text=Invalid+URL";
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removePhotoSlot(3)}
-                        className="absolute top-1 right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs"
-                      >
-                        ×
-                      </button>
-                    </>
-                  ) : (
-                    <div className="w-full h-full bg-white/10 rounded-xl flex items-center justify-center border-2 border-dashed border-white/30">
-                      <div className="text-center">
-                        <div className="text-2xl mb-1">📷</div>
-                        <div className="text-white/40 text-xs">Photo 3</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {!showPhoto2 && (
-                <button
-                  type="button"
-                  onClick={() => addPhotoSlot(2)}
-                  className="aspect-square bg-white/5 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-white/30 hover:border-blue-500 transition-all"
-                >
-                  <div className="text-2xl mb-1">+</div>
-                  <div className="text-white/40 text-xs">Add Photo</div>
-                </button>
-              )}
-
-              {showPhoto2 && !showPhoto3 && (
-                <button
-                  type="button"
-                  onClick={() => addPhotoSlot(3)}
-                  className="aspect-square bg-white/5 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-white/30 hover:border-blue-500 transition-all"
-                >
-                  <div className="text-2xl mb-1">+</div>
-                  <div className="text-white/40 text-xs">Add Photo</div>
-                </button>
-              )}
+              ))}
             </div>
+            <button
+              type="button"
+              onClick={addPhotoSlot}
+              disabled={formData.photos.length >= 3}
+              className="w-full py-2 bg-white/5 rounded-xl text-white/60 text-sm hover:bg-white/10 transition-all disabled:opacity-50"
+            >
+              + Add Photo
+            </button>
           </div>
 
           <div className="space-y-2">
-            <input
-              type="text"
-              placeholder="Main photo URL (required)"
-              value={formData.photos[0] || ""}
-              onChange={(e) => updatePhotoUrl(0, e.target.value)}
-              className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all text-sm"
-              required
-            />
-            {showPhoto2 && (
+            {formData.photos.map((photo, index) => (
               <input
+                key={index}
                 type="text"
-                placeholder="Photo 2 URL (optional)"
-                value={formData.photos[1] || ""}
-                onChange={(e) => updatePhotoUrl(1, e.target.value)}
+                placeholder={`Photo ${index + 1} URL`}
+                value={photo}
+                onChange={(e) => updatePhotoUrl(index, e.target.value)}
                 className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all text-sm"
               />
-            )}
-            {showPhoto3 && (
-              <input
-                type="text"
-                placeholder="Photo 3 URL (optional)"
-                value={formData.photos[2] || ""}
-                onChange={(e) => updatePhotoUrl(2, e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all text-sm"
-              />
-            )}
+            ))}
           </div>
 
           <div>
@@ -538,7 +433,9 @@ function ProfileSetup({
 
           <button
             type="submit"
-            disabled={loading || !formData.photos[0] || !formData.gender}
+            disabled={
+              loading || formData.photos.length === 0 || !formData.gender
+            }
             className="w-full bg-blue-500 text-white font-semibold py-3 rounded-xl hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading

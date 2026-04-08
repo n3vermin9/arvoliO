@@ -22,6 +22,11 @@ import {
   addDoc,
   serverTimestamp,
   deleteDoc,
+  where,
+  limit,
+  startAfter,
+  enableIndexedDbPersistence,
+  CACHE_SIZE_UNLIMITED,
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -39,27 +44,54 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+enableIndexedDbPersistence(db, { cacheSizeBytes: CACHE_SIZE_UNLIMITED }).catch(
+  (err) => {
+    if (err.code === "failed-precondition") {
+      console.log("Multiple tabs open, persistence disabled");
+    } else if (err.code === "unimplemented") {
+      console.log("Browser doesn't support persistence");
+    }
+  },
+);
+
+const userCache = new Map();
+const profileCache = new Map();
+
 export const getUserData = async (userId) => {
+  if (userCache.has(userId)) {
+    return userCache.get(userId);
+  }
   const userDoc = await getDoc(doc(db, "users", userId));
-  return userDoc.exists() ? userDoc.data() : null;
+  const data = userDoc.exists() ? userDoc.data() : null;
+  userCache.set(userId, data);
+  setTimeout(() => userCache.delete(userId), 30000);
+  return data;
 };
 
 export const getNextProfile = async (currentUserId) => {
   const currentUserDoc = await getDoc(doc(db, "users", currentUserId));
-
   if (!currentUserDoc.exists()) return null;
 
   const currentUser = currentUserDoc.data();
   const swipedIds = currentUser.swipes || [];
   const dislikedIds = currentUser.dislikes || [];
-  const interestedIn = currentUser.interestedIn || "both";
-
   const usersWhoAlreadyLikedMe = (currentUser.likesWithMessages || []).map(
     (like) => like.userId,
   );
+  const interestedIn = currentUser.interestedIn || "both";
 
   const usersRef = collection(db, "users");
-  const querySnapshot = await getDocs(usersRef);
+  let usersQuery = query(usersRef, limit(50));
+
+  if (interestedIn !== "both") {
+    usersQuery = query(
+      usersRef,
+      where("gender", "==", interestedIn),
+      limit(50),
+    );
+  }
+
+  const querySnapshot = await getDocs(usersQuery);
 
   const eligibleUsers = [];
   querySnapshot.forEach((document) => {
@@ -73,11 +105,7 @@ export const getNextProfile = async (currentUserId) => {
     ) {
       const ageDiff = Math.abs(userData.age - currentUser.age);
       if (ageDiff <= 5) {
-        if (interestedIn === "both") {
-          eligibleUsers.push({ id: document.id, ...userData });
-        } else if (interestedIn === userData.gender) {
-          eligibleUsers.push({ id: document.id, ...userData });
-        }
+        eligibleUsers.push({ id: document.id, ...userData });
       }
     }
   });
@@ -354,7 +382,7 @@ export const markMessagesAsRead = async (matchId, userId) => {
 
 export const listenToMessages = (matchId, callback) => {
   const messagesRef = collection(db, "chats", matchId, "messages");
-  const q = query(messagesRef, orderBy("timestamp", "asc"));
+  const q = query(messagesRef, orderBy("timestamp", "asc"), limit(100));
 
   return onSnapshot(q, (snapshot) => {
     const messages = [];
@@ -370,35 +398,52 @@ export const listenToMessages = (matchId, callback) => {
 
 export const listenToMatches = (userId, callback) => {
   const userRef = doc(db, "users", userId);
+
   return onSnapshot(userRef, async (document) => {
     if (document.exists()) {
       const userData = document.data();
       const matches = userData.matches || [];
 
-      const validMatches = [];
-      for (const match of matches) {
-        const otherUserDoc = await getDoc(doc(db, "users", match.userId));
-        if (otherUserDoc.exists()) {
-          const otherUser = otherUserDoc.data();
-          if (otherUser.hasProfile !== false) {
-            const otherUserMatches = otherUser.matches || [];
-            const isMutual = otherUserMatches.some((m) => m.userId === userId);
+      if (matches.length === 0) {
+        callback([]);
+        return;
+      }
 
-            if (isMutual) {
-              const chatDoc = await getDoc(doc(db, "chats", match.id));
-              if (chatDoc.exists()) {
-                const chatData = chatDoc.data();
-                validMatches.push({
-                  ...match,
-                  lastMessage: chatData.lastMessage || "",
-                  lastMessageTime: chatData.lastMessageTime,
-                  unreadCount: match.unreadCount || 0,
-                });
-              } else {
-                validMatches.push(match);
-              }
-            }
-          }
+      const matchIds = matches.map((m) => m.userId).slice(0, 10);
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("__name__", "in", matchIds));
+      const usersSnapshot = await getDocs(q);
+
+      const usersMap = new Map();
+      usersSnapshot.forEach((doc) => {
+        usersMap.set(doc.id, { id: doc.id, ...doc.data() });
+      });
+
+      const chatPromises = matches.map((match) =>
+        getDoc(doc(db, "chats", match.id)),
+      );
+      const chatDocs = await Promise.all(chatPromises);
+
+      const validMatches = [];
+      for (let i = 0; i < matches.length; i++) {
+        const match = matches[i];
+        const otherUser = usersMap.get(match.userId);
+        const chatDoc = chatDocs[i];
+
+        if (otherUser && otherUser.hasProfile !== false) {
+          validMatches.push({
+            ...match,
+            name: otherUser.name,
+            age: otherUser.age,
+            photos: otherUser.photos || [],
+            lastMessage: chatDoc.exists()
+              ? chatDoc.data().lastMessage || ""
+              : "",
+            lastMessageTime: chatDoc.exists()
+              ? chatDoc.data().lastMessageTime
+              : null,
+            unreadCount: match.unreadCount || 0,
+          });
         }
       }
 
@@ -434,7 +479,7 @@ export const listenToChatUpdates = (matchId, callback) => {
 
 export const listenToNewLikes = (userId, callback) => {
   const userRef = doc(db, "users", userId);
-  
+
   return onSnapshot(userRef, (document) => {
     if (document.exists()) {
       const userData = document.data();
@@ -607,6 +652,8 @@ export const cleanupUserChats = async (userId) => {
 };
 
 export const logoutUser = async () => {
+  userCache.clear();
+  profileCache.clear();
   await signOut(auth);
 };
 

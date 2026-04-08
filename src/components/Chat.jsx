@@ -21,6 +21,9 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
   const [showProfile, setShowProfile] = useState(false);
   const [otherUserProfile, setOtherUserProfile] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [fullScreenIndex, setFullScreenIndex] = useState(0);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -96,6 +99,7 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
   const viewProfile = async () => {
     const profile = await getUserData(match.userId);
     setOtherUserProfile(profile);
+    setCurrentPhotoIndex(0);
     setShowProfile(true);
   };
 
@@ -129,73 +133,211 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     return false;
   };
 
-if (showProfile && otherUserProfile) {
-  return (
-    <div
-      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-      onClick={() => setShowProfile(false)}
-    >
+  const fullScreenNext = () => {
+    const photos = otherUserProfile?.photos || [];
+    if (fullScreenIndex < photos.length - 1) {
+      setFullScreenIndex(fullScreenIndex + 1);
+    }
+  };
+
+  const fullScreenPrev = () => {
+    if (fullScreenIndex > 0) {
+      setFullScreenIndex(fullScreenIndex - 1);
+    }
+  };
+
+  if (isFullScreen && otherUserProfile) {
+    const profilePhotos = otherUserProfile.photos || [];
+    return (
       <div
-        className="bg-white/5 rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 bg-black z-50 flex items-center justify-center"
+        onClick={() => setIsFullScreen(false)}
       >
-        <div className="p-6 space-y-4">
-          {otherUserProfile.photos && otherUserProfile.photos[0] ? (
-            <img
-              src={otherUserProfile.photos[0]}
-              className="w-32 h-32 rounded-full object-cover mx-auto"
+        <button
+          onClick={() => setIsFullScreen(false)}
+          className="absolute top-4 left-4 text-white text-2xl z-10 bg-black/50 rounded-full w-10 h-10 flex items-center justify-center"
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
             />
-          ) : (
-            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-5xl mx-auto">
-              👤
+          </svg>
+        </button>
+        <div className="w-full h-full flex items-center justify-center">
+          <img
+            src={profilePhotos[fullScreenIndex]}
+            className="max-w-full max-h-full object-contain"
+          />
+        </div>
+        {profilePhotos.length > 1 && (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                fullScreenPrev();
+              }}
+              className="absolute left-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white text-2xl"
+            >
+              ‹
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                fullScreenNext();
+              }}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white text-2xl"
+            >
+              ›
+            </button>
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+              {profilePhotos.map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`h-1.5 rounded-full transition-all ${
+                    idx === fullScreenIndex
+                      ? "w-6 bg-white"
+                      : "w-1.5 bg-white/50"
+                  }`}
+                />
+              ))}
             </div>
-          )}
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-white">
-              {otherUserProfile.name}, {otherUserProfile.age}
-            </h2>
-            <p className="text-white/60 text-sm capitalize mt-1">
-              {otherUserProfile.gender}
-            </p>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  if (showProfile && otherUserProfile) {
+    const profilePhotos = otherUserProfile.photos || [];
+
+    return (
+      <div
+        className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+        onClick={() => setShowProfile(false)}
+      >
+        <div
+          className="bg-white/5 rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="p-6 space-y-4">
+            {profilePhotos.length > 0 ? (
+              <>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setFullScreenIndex(currentPhotoIndex);
+                      setIsFullScreen(true);
+                    }}
+                    className="mx-auto block"
+                  >
+                    <img
+                      src={profilePhotos[currentPhotoIndex]}
+                      className="w-32 h-32 rounded-full object-cover mx-auto hover:opacity-80 transition-opacity"
+                    />
+                  </button>
+                  {profilePhotos.length > 1 && (
+                    <div className="flex justify-center gap-1 mt-2">
+                      {profilePhotos.map((_, idx) => (
+                        <div
+                          key={idx}
+                          className={`h-1 rounded-full transition-all ${
+                            idx === currentPhotoIndex
+                              ? "w-4 bg-white"
+                              : "w-1 bg-white/50"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {profilePhotos.length > 1 && (
+                  <div className="overflow-x-auto scrollbar-hide -mx-2 px-2">
+                    <div className="flex gap-2 justify-center">
+                      {profilePhotos.map((photo, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentPhotoIndex(idx)}
+                          className={`flex-shrink-0 w-12 h-12 rounded-full overflow-hidden border-2 transition-all ${
+                            idx === currentPhotoIndex
+                              ? "border-blue-500"
+                              : "border-white/30"
+                          }`}
+                        >
+                          <img
+                            src={photo}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-5xl mx-auto">
+                👤
+              </div>
+            )}
+
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-white">
+                {otherUserProfile.name}, {otherUserProfile.age}
+              </h2>
+              <p className="text-white/60 text-sm capitalize mt-1">
+                {otherUserProfile.gender}
+              </p>
+            </div>
+
+            <div className="border-t border-white/10 pt-4">
+              <label className="text-white/40 text-xs uppercase tracking-wider">
+                Bio
+              </label>
+              <p className="text-white/80 mt-1 leading-relaxed">
+                {otherUserProfile.bio || "No bio yet"}
+              </p>
+            </div>
+
+            <div className="border-t border-white/10 pt-4">
+              <label className="text-white/40 text-xs uppercase tracking-wider">
+                Member Since
+              </label>
+              <p className="text-white/60 text-sm mt-1">
+                {otherUserProfile.createdAt
+                  ? new Date(otherUserProfile.createdAt).toLocaleDateString()
+                  : "Just joined"}
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowProfile(false);
+                setShowBlockConfirm(true);
+              }}
+              className="w-full mt-2 bg-red-500/20 text-red-500 font-semibold py-2 rounded-xl border border-red-500/50 hover:bg-red-500/30 transition-all"
+            >
+              Block User
+            </button>
+
+            <button
+              onClick={() => setShowProfile(false)}
+              className="w-full mt-2 bg-blue-500/20 text-blue-400 font-semibold py-2 rounded-xl hover:bg-blue-500/30 transition-all"
+            >
+              Close
+            </button>
           </div>
-          <div className="border-t border-white/10 pt-4">
-            <label className="text-white/40 text-xs uppercase tracking-wider">
-              Bio
-            </label>
-            <p className="text-white/80 mt-1 leading-relaxed">
-              {otherUserProfile.bio || "No bio yet"}
-            </p>
-          </div>
-          <div className="border-t border-white/10 pt-4">
-            <label className="text-white/40 text-xs uppercase tracking-wider">
-              Member Since
-            </label>
-            <p className="text-white/60 text-sm mt-1">
-              {otherUserProfile.createdAt
-                ? new Date(otherUserProfile.createdAt).toLocaleDateString()
-                : "Just joined"}
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setShowProfile(false);
-              setShowBlockConfirm(true);
-            }}
-            className="w-full mt-2 bg-red-500/20 text-red-500 font-semibold py-2 rounded-xl  hover:bg-red-500/30 transition-all"
-          >
-            Block User
-          </button>
-          <button
-            onClick={() => setShowProfile(false)}
-            className="w-full mt-2 bg-blue-500/20 text-blue-400 font-semibold py-2 rounded-xl hover:bg-blue-500/30 transition-all"
-          >
-            Close
-          </button>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   if (showBlockConfirm) {
     return (

@@ -50,8 +50,11 @@ function ProfileView({
     touchStartX.current = e.touches[0].clientX;
   };
 
-  const handleTouchEnd = (e) => {
-    touchEndX.current = e.changedTouches[0].clientX;
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
     const diff = touchStartX.current - touchEndX.current;
     if (Math.abs(diff) > 50) {
       if (diff > 0) {
@@ -60,15 +63,16 @@ function ProfileView({
         prevPhoto();
       }
     }
+    touchStartX.current = 0;
+    touchEndX.current = 0;
   };
 
-if (isFullScreen && hasPhotos) {
-  return (
-    <div
-      className="fixed inset-0 bg-black z-50 flex items-center justify-center"
-      onClick={() => setIsFullScreen(false)}
-    >
-      <div onClick={(e) => e.stopPropagation()}>
+  if (isFullScreen && hasPhotos) {
+    return (
+      <div
+        className="fixed inset-0 bg-black z-50 flex items-center justify-center"
+        onClick={() => setIsFullScreen(false)}
+      >
         <button
           onClick={() => setIsFullScreen(false)}
           className="absolute top-4 left-4 text-white text-2xl z-10 bg-black/50 rounded-full w-10 h-10 flex items-center justify-center"
@@ -87,7 +91,12 @@ if (isFullScreen && hasPhotos) {
             />
           </svg>
         </button>
-        <div className="w-full h-full flex items-center justify-center">
+        <div
+          className="w-full h-full flex items-center justify-center"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <img
             src={photos[currentPhotoIndex]}
             className="max-w-full max-h-full object-contain"
@@ -117,22 +126,25 @@ if (isFullScreen && hasPhotos) {
               {photos.map((_, idx) => (
                 <div
                   key={idx}
-                  className={`h-1.5 rounded-full transition-all ${idx === currentPhotoIndex ? "w-6 bg-white" : "w-1.5 bg-white/50"}`}
+                  className={`h-1.5 rounded-full transition-all ${
+                    idx === currentPhotoIndex
+                      ? "w-6 bg-white"
+                      : "w-1.5 bg-white/50"
+                  }`}
                 />
               ))}
             </div>
           </>
         )}
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black p-4 pb-20">
       <div className="max-w-md mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-xl font-bold text-white">My Profile</h1>{" "}
+          <h1 className="text-xl font-bold text-white">My Profile</h1>
           <button
             onClick={() => setIsEditing(true)}
             className="text-blue-500 text-sm font-semibold hover:text-blue-400 transition-all"
@@ -143,29 +155,66 @@ if (isFullScreen && hasPhotos) {
 
         <div className="mb-6">
           {hasPhotos ? (
-            <div className="flex justify-center gap-3 overflow-x-auto py-2 scrollbar-hide">
-              {photos.map((photo, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => {
-                    setCurrentPhotoIndex(idx);
-                    setIsFullScreen(true);
-                  }}
-                  className="flex-shrink-0 cursor-pointer"
-                >
-                  <div
-                    className={`w-20 h-20 rounded-full overflow-hidden border-2 ${idx === currentPhotoIndex ? "border-blue-500" : "border-white/20"}`}
-                  >
-                    <img src={photo} className="w-full h-full object-cover" />
+            <div
+              className="relative"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div
+                className="aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-900 to-black cursor-pointer"
+                onClick={() => setIsFullScreen(true)}
+              >
+                <img
+                  src={photos[currentPhotoIndex]}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              {photos.length > 1 && (
+                <>
+                  {currentPhotoIndex > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        prevPhoto();
+                      }}
+                      className="absolute left-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white text-xl"
+                    >
+                      ‹
+                    </button>
+                  )}
+                  {currentPhotoIndex < photos.length - 1 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        nextPhoto();
+                      }}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white text-xl"
+                    >
+                      ›
+                    </button>
+                  )}
+                  <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+                    {photos.map((_, idx) => (
+                      <div
+                        key={idx}
+                        className={`h-1 rounded-full transition-all ${
+                          idx === currentPhotoIndex
+                            ? "w-5 bg-white"
+                            : "w-1 bg-white/50"
+                        }`}
+                      />
+                    ))}
                   </div>
-                </div>
-              ))}
+                </>
+              )}
             </div>
           ) : (
-            <div className="flex justify-center">
-              <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
-                <div className="text-3xl">📷</div>
-              </div>
+            <div className="aspect-square rounded-xl bg-white/5 flex items-center justify-center">
+              <div className="text-6xl">📷</div>
+              <p className="text-white/40 text-sm text-center mt-2">
+                No photos yet
+              </p>
             </div>
           )}
         </div>
