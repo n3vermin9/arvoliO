@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "react-hot-toast";
 import ProfileSetup from "./ProfileSetup";
 
 function ProfileView({
@@ -7,6 +8,7 @@ function ProfileView({
   onUpdate,
   onLogout,
   onShowPreviousMatches,
+  onShowBlockedUsers,
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -33,6 +35,9 @@ function ProfileView({
   const hasPhotos = photos.length > 0;
   const previousMatchesCount = userData?.previousMatches?.length || 0;
   const totalMatches = (userData?.matches?.length || 0) + previousMatchesCount;
+  const blockedCount = (
+    userData?.previousMatches?.filter((m) => m.blocked === true) || []
+  ).length;
 
   const nextPhoto = () => {
     if (hasPhotos && currentPhotoIndex < photos.length - 1) {
@@ -65,6 +70,20 @@ function ProfileView({
     }
     touchStartX.current = 0;
     touchEndX.current = 0;
+  };
+
+  const handleShare = async () => {
+    const link = `${window.location.origin}/profile/${userId}`;
+    try {
+      await navigator.share({
+        title: `${userData.name} on ArvoliO`,
+        text: `Check out ${userData.name}, ${userData.age} on ArvoliO! 💕`,
+        url: link,
+      });
+    } catch (err) {
+      navigator.clipboard.writeText(link);
+      toast.success("Profile link copied to clipboard!");
+    }
   };
 
   if (isFullScreen && hasPhotos) {
@@ -145,76 +164,55 @@ function ProfileView({
       <div className="max-w-md mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-xl font-bold text-white">My Profile</h1>
-          <button
-            onClick={() => setIsEditing(true)}
-            className="text-blue-500 text-sm font-semibold hover:text-blue-400 transition-all"
-          >
-            Edit
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="text-blue-500 text-sm font-semibold hover:text-blue-400 transition-all"
+            >
+              Edit
+            </button>
+          </div>
         </div>
 
         <div className="mb-6">
           {hasPhotos ? (
-            <div
-              className="relative"
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-            >
-              <div
-                className="aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-900 to-black cursor-pointer"
-                onClick={() => setIsFullScreen(true)}
-              >
-                <img
-                  src={photos[currentPhotoIndex]}
-                  className="w-full h-full object-cover"
-                />
+            <>
+              <div className="overflow-x-auto scrollbar-hide">
+                <div className="flex gap-2">
+                  {photos.map((photo, idx) => (
+                    <div
+                      key={idx}
+                      className="flex-shrink-0 w-24 h-24 rounded-full overflow-hidden cursor-pointer border-2 border-white/20 hover:border-blue-500 transition-all"
+                      onClick={() => {
+                        setCurrentPhotoIndex(idx);
+                        setIsFullScreen(true);
+                      }}
+                    >
+                      <img src={photo} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
               </div>
               {photos.length > 1 && (
-                <>
-                  {currentPhotoIndex > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        prevPhoto();
-                      }}
-                      className="absolute left-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white text-xl"
-                    >
-                      ‹
-                    </button>
-                  )}
-                  {currentPhotoIndex < photos.length - 1 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        nextPhoto();
-                      }}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white text-xl"
-                    >
-                      ›
-                    </button>
-                  )}
-                  <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
-                    {photos.map((_, idx) => (
-                      <div
-                        key={idx}
-                        className={`h-1 rounded-full transition-all ${
-                          idx === currentPhotoIndex
-                            ? "w-5 bg-white"
-                            : "w-1 bg-white/50"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </>
+                <div className="flex justify-center gap-1 mt-2">
+                  {photos.map((_, idx) => (
+                    <div
+                      key={idx}
+                      className={`h-1 rounded-full transition-all ${
+                        idx === currentPhotoIndex
+                          ? "w-4 bg-white"
+                          : "w-1 bg-white/50"
+                      }`}
+                    />
+                  ))}
+                </div>
               )}
-            </div>
+            </>
           ) : (
-            <div className="aspect-square rounded-xl bg-white/5 flex items-center justify-center">
-              <div className="text-6xl">📷</div>
-              <p className="text-white/40 text-sm text-center mt-2">
-                No photos yet
-              </p>
+            <div className="flex justify-center">
+              <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center">
+                <div className="text-3xl">📷</div>
+              </div>
             </div>
           )}
         </div>
@@ -279,34 +277,44 @@ function ProfileView({
 
         <div className="mt-6 bg-white/5 rounded-2xl p-6">
           <h3 className="text-white font-semibold mb-3">Quick Stats</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={onShowPreviousMatches}
-              className="text-center hover:bg-white/10 rounded-xl p-2 transition-all"
+              className="text-center hover:bg-white/10 rounded-xl p-2 transition-all flex flex-col items-center"
             >
               <div className="text-2xl font-bold text-blue-400">
                 {totalMatches}
               </div>
-              <div className="text-white/40 text-xs mt-1">Total Matches</div>
+              <div className="text-white/40 text-xs mt-1">Matches</div>
             </button>
-            <div className="text-center">
+            <div className="text-center flex flex-col justify-center items-center">
               <div className="text-2xl font-bold text-blue-400">
                 {userData?.swipes?.length || 0}
               </div>
-              <div className="text-white/40 text-xs mt-1">People met</div>
+              <div className="text-white/40 text-xs mt-1">Swipes</div>
             </div>
+            <button
+              onClick={onShowBlockedUsers}
+              className="text-center hover:bg-white/10 rounded-xl p-2 transition-all flex flex-col items-center"
+            >
+              <div className="text-2xl font-bold text-red-400">
+                {blockedCount}
+              </div>
+              <div className="text-white/40 text-xs mt-1">Blocked</div>
+            </button>
           </div>
         </div>
 
-        <div className="mt-6 p-4 bg-blue-500/10 rounded-xl border border-blue-500/20">
-          <p className="text-blue-400 text-sm text-center">
-            Add more photos and a detailed bio to get more matches
-          </p>
-        </div>
+        <button
+          onClick={handleShare}
+          className="w-full mt-6 bg-blue-500 text-white font-semibold py-3 rounded-xl hover:bg-blue-600 transition-all"
+        >
+          Share Profile
+        </button>
 
         <button
           onClick={onLogout}
-          className="w-full mt-6 bg-gray-500/20 text-gray-300 font-semibold py-3 rounded-xl border border-gray-500/50 hover:bg-gray-500/30 transition-all active:scale-95"
+          className="w-full mt-3 bg-gray-500/20 text-gray-300 font-semibold py-3 rounded-xl border border-gray-500/50 hover:bg-gray-500/30 transition-all active:scale-95"
         >
           Logout
         </button>

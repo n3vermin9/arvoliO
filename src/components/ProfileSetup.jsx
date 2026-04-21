@@ -200,7 +200,7 @@ function ProfileSetup({
             <label className="text-white/80 text-sm mb-2 block">
               Profile Photos
             </label>
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="grid grid-cols-3 gap-2 items-start">
               {[0, 1, 2].map((index) => (
                 <div key={index} className="relative aspect-square">
                   {formData.photos[index] ? (

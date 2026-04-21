@@ -5,6 +5,7 @@ import {
   createSwipe,
   sendMessageWithLike,
   checkIfLikedMe,
+  undoLastSwipe,
 } from "../firebase";
 import sadLogo from "../assets/sad.png";
 import starLogo from "../assets/star.png";
@@ -19,6 +20,8 @@ function SwipeCard({ userId }) {
   const [messageText, setMessageText] = useState("");
   const [sending, setSending] = useState(false);
   const [alreadyLikedMe, setAlreadyLikedMe] = useState(false);
+  const [showUndo, setShowUndo] = useState(false);
+  const [lastSwipeAction, setLastSwipeAction] = useState(null);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
 
@@ -64,12 +67,30 @@ function SwipeCard({ userId }) {
 
       if (result.matched) {
         toast.success(`Matched with ${profile.name}!`);
+      } else {
+        toast.success(
+          `${direction === "like" ? "Liked" : "Passed"} ${profile.name}`,
+        );
+        setLastSwipeAction({ profileId: profile.id, direction });
+        setShowUndo(true);
+        setTimeout(() => setShowUndo(false), 5000);
       }
 
       loadNextProfile();
     } catch (error) {
       console.error("Failed to record swipe:", error);
       toast.error("Something went wrong");
+    }
+  };
+
+  const handleUndo = async () => {
+    if (lastSwipeAction) {
+      const undone = await undoLastSwipe(userId);
+      if (undone) {
+        toast.success("Swipe undone!");
+        loadNextProfile();
+        setShowUndo(false);
+      }
     }
   };
 
@@ -164,6 +185,18 @@ function SwipeCard({ userId }) {
   return (
     <div className="h-[calc(100vh-80px)] flex items-center justify-center overflow-hidden">
       <div className="w-full max-w-sm px-4">
+        {showUndo && (
+          <div className="mb-3 p-3 bg-blue-500/20 border border-blue-500 rounded-xl text-center">
+            <p className="text-blue-400 text-sm">Swipe recorded!</p>
+            <button
+              onClick={handleUndo}
+              className="text-blue-400 text-xs underline mt-1"
+            >
+              Undo
+            </button>
+          </div>
+        )}
+
         {alreadyLikedMe && (
           <div className="mb-3 p-2 bg-yellow-500/20 border border-yellow-500 rounded-xl text-center">
             <p className="text-yellow-400 text-sm">

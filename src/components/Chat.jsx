@@ -6,6 +6,9 @@ import {
   removeMatch,
   getUserData,
   blockUser,
+  updateTypingStatus,
+  listenToTypingStatus,
+  listenToUserStatus,
 } from "../firebase";
 import EmojiPicker from "emoji-picker-react";
 
@@ -24,6 +27,12 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [fullScreenIndex, setFullScreenIndex] = useState(0);
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const [userStatus, setUserStatus] = useState({
+    isOnline: false,
+    lastSeen: null,
+  });
+  const typingTimeoutRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -49,6 +58,24 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    const unsubscribeTyping = listenToTypingStatus(
+      match.id,
+      userId,
+      (typing) => {
+        setIsOtherTyping(typing);
+      },
+    );
+    return () => unsubscribeTyping();
+  }, [match.id, userId]);
+
+  useEffect(() => {
+    const unsubscribeStatus = listenToUserStatus(match.userId, (status) => {
+      setUserStatus(status);
+    });
+    return () => unsubscribeStatus();
+  }, [match.userId]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -70,6 +97,14 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     } finally {
       setSending(false);
     }
+  };
+
+  const handleTyping = () => {
+    updateTypingStatus(match.id, userId, true);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      updateTypingStatus(match.id, userId, false);
+    }, 1000);
   };
 
   const handleRemoveMatch = async () => {
@@ -113,6 +148,17 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     if (!timestamp) return "";
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const formatLastSeen = (lastSeen) => {
+    if (!lastSeen) return "offline";
+    const date = lastSeen.toDate ? lastSeen.toDate() : new Date(lastSeen);
+    const now = new Date();
+    const diff = now - date;
+    if (diff < 60000) return "online";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return date.toLocaleDateString();
   };
 
   const getReadStatus = (msg, index) => {
@@ -566,7 +612,11 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
 
           <div className="text-left">
             <h2 className="text-white font-semibold">{match.name}</h2>
-            <p className="text-green-500 text-xs">Online</p>
+            <p className="text-xs text-white/40">
+              {userStatus.isOnline
+                ? "Online"
+                : `Last seen ${formatLastSeen(userStatus.lastSeen)}`}
+            </p>
           </div>
         </button>
 
@@ -578,6 +628,12 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
           Remove
         </button>
       </div>
+
+      {isOtherTyping && (
+        <div className="px-4 py-1 text-xs text-white/40 bg-black/50">
+          typing...
+        </div>
+      )}
 
       <div
         ref={messagesContainerRef}
@@ -634,9 +690,21 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
         <button
           type="button"
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          className="bg-white/10 hover:bg-white/20 rounded-full w-10 h-10 flex items-center justify-center transition-all text-xl"
+          className="bg-white/10 hover:bg-white/20 rounded-full w-11 h-11 flex items-center justify-center transition-all"
         >
-          😊
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
         </button>
 
         {showEmojiPicker && (
@@ -657,7 +725,10 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
           ref={inputRef}
           type="text"
           value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          onChange={(e) => {
+            setNewMessage(e.target.value);
+            handleTyping();
+          }}
           placeholder="Type a message..."
           className="flex-1 bg-white/10 border border-white/20 rounded-full px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all text-sm"
           maxLength={500}
@@ -665,9 +736,21 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
         <button
           type="submit"
           disabled={!newMessage.trim() || sending}
-          className="bg-blue-500 text-white px-6 rounded-full font-semibold hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-blue-500 text-white w-10 h-10 rounded-full pl-1 pb-1 flex items-center justify-center hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {sending ? "..." : "Send"}
+          <svg
+            className="w-5 h-5 rotate-45"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+            />
+          </svg>
         </button>
       </form>
     </div>

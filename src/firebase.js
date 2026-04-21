@@ -24,7 +24,6 @@ import {
   deleteDoc,
   where,
   limit,
-  startAfter,
   enableIndexedDbPersistence,
   CACHE_SIZE_UNLIMITED,
 } from "firebase/firestore";
@@ -55,7 +54,6 @@ enableIndexedDbPersistence(db, { cacheSizeBytes: CACHE_SIZE_UNLIMITED }).catch(
 );
 
 const userCache = new Map();
-const profileCache = new Map();
 
 export const getUserData = async (userId) => {
   if (userCache.has(userId)) {
@@ -652,8 +650,14 @@ export const cleanupUserChats = async (userId) => {
 };
 
 export const logoutUser = async () => {
+  if (auth.currentUser) {
+    const userRef = doc(db, "users", auth.currentUser.uid);
+    await updateDoc(userRef, {
+      isOnline: false,
+      lastSeen: serverTimestamp(),
+    });
+  }
   userCache.clear();
-  profileCache.clear();
   await signOut(auth);
 };
 
@@ -675,4 +679,117 @@ export const getUsersWhoLikedMe = async (userId) => {
 
   const userData = userDoc.data();
   return userData.likesWithMessages || [];
+};
+
+export const updateTypingStatus = async (matchId, userId, isTyping) => {
+  const chatRef = doc(db, "chats", matchId);
+  await updateDoc(chatRef, {
+    [`typing_${userId}`]: isTyping ? serverTimestamp() : null,
+  });
+};
+
+export const listenToTypingStatus = (matchId, userId, callback) => {
+  const chatRef = doc(db, "chats", matchId);
+  return onSnapshot(chatRef, (doc) => {
+    if (doc.exists()) {
+      const data = doc.data();
+      const otherUserId = matchId.split("_").find((id) => id !== userId);
+      const isTyping = data[`typing_${otherUserId}`];
+      callback(isTyping ? true : false);
+    }
+  });
+};
+
+export const updateLastSeen = async (userId) => {
+  const userRef = doc(db, "users", userId);
+  await updateDoc(userRef, {
+    lastSeen: serverTimestamp(),
+    isOnline: true,
+  });
+};
+
+export const listenToUserStatus = (userId, callback) => {
+  const userRef = doc(db, "users", userId);
+  return onSnapshot(userRef, (doc) => {
+    if (doc.exists()) {
+      const data = doc.data();
+      callback({
+        isOnline: data.isOnline || false,
+        lastSeen: data.lastSeen,
+      });
+    }
+  });
+};
+
+export const undoLastSwipe = async (userId) => {
+  const userRef = doc(db, "users", userId);
+  const userDoc = await getDoc(userRef);
+  if (userDoc.exists()) {
+    const userData = userDoc.data();
+    const swipes = userData.swipes || [];
+    const lastSwipe = swipes[swipes.length - 1];
+    if (lastSwipe) {
+      const newSwipes = swipes.slice(0, -1);
+      await updateDoc(userRef, { swipes: newSwipes });
+      return lastSwipe;
+    }
+  }
+  return null;
+};
+
+export const getBlockedUsers = async (userId) => {
+  const userDoc = await getDoc(doc(db, "users", userId));
+  if (userDoc.exists()) {
+    const userData = userDoc.data();
+    const blockedMatches = (userData.previousMatches || []).filter(
+      (m) => m.blocked === true,
+    );
+    const blockedUsers = [];
+    for (const match of blockedMatches) {
+      const userDoc = await getDoc(doc(db, "users", match.userId));
+      if (userDoc.exists()) {
+        blockedUsers.push({
+          id: match.userId,
+          name: match.name,
+          age: match.age,
+          photos: match.photos,
+          blockedAt: match.unmatchedAt,
+        });
+      }
+    }
+    return blockedUsers;
+  }
+  return [];
+};
+
+export const unblockUser = async (userId, blockedUserId) => {
+  const userRef = doc(db, "users", userId);
+  const userDoc = await getDoc(userRef);
+  if (userDoc.exists()) {
+    const userData = userDoc.data();
+    const previousMatches = (userData.previousMatches || []).filter(
+      (m) => m.userId !== blockedUserId,
+    );
+    await updateDoc(userRef, { previousMatches });
+    return true;
+  }
+  return false;
+};
+
+export const generateProfileLink = (userId) => {
+  return `${window.location.origin}/profile/${userId}`;
+};
+
+export const getUserByUsername = async (username) => {
+  const usersRef = collection(db, "users");
+  const q = query(usersRef, where("username", "==", username));
+  const snapshot = await getDocs(q);
+  if (!snapshot.empty) {
+    return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+  }
+  return null;
+};
+
+export const generateShareText = (userName, age) => {
+  return `Check out ${userName}, ${age} on ArvoliO! 💕`;
 };
