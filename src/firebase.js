@@ -793,3 +793,48 @@ export const getUserByUsername = async (username) => {
 export const generateShareText = (userName, age) => {
   return `Check out ${userName}, ${age} on ArvoliO! 💕`;
 };
+
+export const generateUsername = (name) => {
+  const base = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const randomNum = Math.floor(Math.random() * 1000);
+  return `${base}${randomNum}`;
+};
+
+export const checkUsernameAvailable = async (username) => {
+  const usersRef = collection(db, "users");
+  const q = query(usersRef, where("username", "==", username));
+  const snapshot = await getDocs(q);
+  return snapshot.empty;
+};
+
+export const setUsername = async (userId, username) => {
+  const userRef = doc(db, "users", userId);
+  await updateDoc(userRef, { username });
+};
+
+export const searchUsersByUsername = async (searchTerm) => {
+  if (!searchTerm || searchTerm.length < 1) return [];
+
+  const usersRef = collection(db, "users");
+  const querySnapshot = await getDocs(usersRef);
+
+  const results = [];
+  querySnapshot.forEach((doc) => {
+    const userData = doc.data();
+    if (
+      userData.username &&
+      userData.username.toLowerCase().includes(searchTerm.toLowerCase())
+    ) {
+      results.push({
+        id: doc.id,
+        name: userData.name,
+        age: userData.age,
+        photos: userData.photos || [],
+        username: userData.username,
+        bio: userData.bio,
+      });
+    }
+  });
+
+  return results.slice(0, 20);
+};

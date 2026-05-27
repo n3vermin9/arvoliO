@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { toast } from "react-hot-toast";
 import ProfileSetup from "./ProfileSetup";
+import ShareModal from "./ShareModal";
 
 function ProfileView({
   userData,
@@ -13,6 +13,7 @@ function ProfileView({
   const [isEditing, setIsEditing] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const touchStartX = React.useRef(0);
   const touchEndX = React.useRef(0);
 
@@ -72,18 +73,8 @@ function ProfileView({
     touchEndX.current = 0;
   };
 
-  const handleShare = async () => {
-    const link = `${window.location.origin}/profile/${userId}`;
-    try {
-      await navigator.share({
-        title: `${userData.name} on ArvoliO`,
-        text: `Check out ${userData.name}, ${userData.age} on ArvoliO! 💕`,
-        url: link,
-      });
-    } catch (err) {
-      navigator.clipboard.writeText(link);
-      toast.success("Profile link copied to clipboard!");
-    }
+  const handleShare = () => {
+    setShowShareModal(true);
   };
 
   if (isFullScreen && hasPhotos) {
@@ -161,58 +152,77 @@ function ProfileView({
 
   return (
     <div className="min-h-screen bg-black p-4 pb-20">
+      {showShareModal && (
+        <ShareModal
+          link={`${window.location.origin}/profile/${userId}`}
+          name={userData?.name}
+          age={userData?.age}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
       <div className="max-w-md mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-xl font-bold text-white">My Profile</h1>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setIsEditing(true)}
-              className="text-blue-500 text-sm font-semibold hover:text-blue-400 transition-all"
-            >
-              Edit
-            </button>
-          </div>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="text-blue-500 text-sm font-semibold hover:text-blue-400 transition-all"
+          >
+            Edit
+          </button>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-6 flex justify-center">
           {hasPhotos ? (
-            <>
-              <div className="overflow-x-auto scrollbar-hide">
-                <div className="flex gap-2">
-                  {photos.map((photo, idx) => (
-                    <div
-                      key={idx}
-                      className="flex-shrink-0 w-24 h-24 rounded-full overflow-hidden cursor-pointer border-2 border-white/20 hover:border-blue-500 transition-all"
-                      onClick={() => {
-                        setCurrentPhotoIndex(idx);
-                        setIsFullScreen(true);
-                      }}
-                    >
-                      <img src={photo} className="w-full h-full object-cover" />
-                    </div>
-                  ))}
-                </div>
+            photos.length === 1 ? (
+              <div
+                className="w-32 h-32 rounded-full overflow-hidden cursor-pointer border-2 border-white/20 hover:border-blue-500 transition-all mx-auto"
+                onClick={() => {
+                  setCurrentPhotoIndex(0);
+                  setIsFullScreen(true);
+                }}
+              >
+                <img src={photos[0]} className="w-full h-full object-cover" />
               </div>
-              {photos.length > 1 && (
-                <div className="flex justify-center gap-1 mt-2">
-                  {photos.map((_, idx) => (
-                    <div
-                      key={idx}
-                      className={`h-1 rounded-full transition-all ${
-                        idx === currentPhotoIndex
-                          ? "w-4 bg-white"
-                          : "w-1 bg-white/50"
-                      }`}
-                    />
-                  ))}
+            ) : (
+              <>
+                <div className="overflow-x-auto scrollbar-hide">
+                  <div className="flex gap-2 justify-center">
+                    {photos.map((photo, idx) => (
+                      <div
+                        key={idx}
+                        className="flex-shrink-0 w-24 h-24 rounded-full overflow-hidden cursor-pointer border-2 border-white/20 hover:border-blue-500 transition-all"
+                        onClick={() => {
+                          setCurrentPhotoIndex(idx);
+                          setIsFullScreen(true);
+                        }}
+                      >
+                        <img
+                          src={photo}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </>
+                {photos.length > 1 && (
+                  <div className="flex justify-center gap-1 mt-2">
+                    {photos.map((_, idx) => (
+                      <div
+                        key={idx}
+                        className={`h-1 rounded-full transition-all ${
+                          idx === currentPhotoIndex
+                            ? "w-4 bg-white"
+                            : "w-1 bg-white/50"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )
           ) : (
-            <div className="flex justify-center">
-              <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center">
-                <div className="text-3xl">📷</div>
-              </div>
+            <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center">
+              <div className="text-3xl">📷</div>
             </div>
           )}
         </div>
@@ -226,7 +236,22 @@ function ProfileView({
               {userData?.name || "Not set"}
             </p>
           </div>
-
+          <div>
+            <label className="text-white/40 text-xs uppercase tracking-wider">
+              Username
+            </label>
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-white/60 text-sm">@</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${userData?.username}`);
+                }}
+                className="text-white text-lg font-semibold hover:text-blue-400 transition-all text-left"
+              >
+                {userData?.username || "Not set"}
+              </button>
+            </div>
+          </div>
           <div>
             <label className="text-white/40 text-xs uppercase tracking-wider">
               Age
@@ -307,14 +332,27 @@ function ProfileView({
 
         <button
           onClick={handleShare}
-          className="w-full mt-6 bg-blue-500 text-white font-semibold py-3 rounded-xl hover:bg-blue-600 transition-all"
+          className="w-full mt-6 bg-white/10 hover:bg-white/20 text-white font-semibold py-3 rounded-full border border-white/20 transition-all flex items-center justify-center gap-2"
         >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.102m1.858-3.243a4 4 0 00-5.656 0m5.656 0l-4 4"
+            />
+          </svg>
           Share Profile
         </button>
 
         <button
           onClick={onLogout}
-          className="w-full mt-3 bg-gray-500/20 text-gray-300 font-semibold py-3 rounded-xl border border-gray-500/50 hover:bg-gray-500/30 transition-all active:scale-95"
+          className="w-full mt-3 bg-gray-500/20 text-gray-300 font-semibold py-3 rounded-full border border-gray-500/50 hover:bg-gray-500/30 transition-all active:scale-95"
         >
           Logout
         </button>

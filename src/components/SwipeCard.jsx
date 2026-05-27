@@ -5,7 +5,6 @@ import {
   createSwipe,
   sendMessageWithLike,
   checkIfLikedMe,
-  undoLastSwipe,
 } from "../firebase";
 import sadLogo from "../assets/sad.png";
 import starLogo from "../assets/star.png";
@@ -19,9 +18,6 @@ function SwipeCard({ userId }) {
   const [showMessageInput, setShowMessageInput] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [sending, setSending] = useState(false);
-  const [alreadyLikedMe, setAlreadyLikedMe] = useState(false);
-  const [showUndo, setShowUndo] = useState(false);
-  const [lastSwipeAction, setLastSwipeAction] = useState(null);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
 
@@ -34,7 +30,6 @@ function SwipeCard({ userId }) {
     setCurrentImageIndex(0);
     setShowMessageInput(false);
     setMessageText("");
-    setAlreadyLikedMe(false);
     try {
       const nextProfile = await getNextProfile(userId);
       if (!nextProfile) {
@@ -42,8 +37,6 @@ function SwipeCard({ userId }) {
         setProfile(null);
       } else {
         setProfile(nextProfile);
-        const liked = await checkIfLikedMe(userId, nextProfile.id);
-        setAlreadyLikedMe(liked);
         setNoMore(false);
       }
     } catch (error) {
@@ -56,12 +49,6 @@ function SwipeCard({ userId }) {
   const handleSwipe = async (direction) => {
     if (!profile) return;
 
-    if (alreadyLikedMe) {
-      toast.error(`${profile.name} already liked you! Check Liked You tab.`);
-      loadNextProfile();
-      return;
-    }
-
     try {
       const result = await createSwipe(userId, profile.id, direction);
 
@@ -71,9 +58,6 @@ function SwipeCard({ userId }) {
         toast.success(
           `${direction === "like" ? "Liked" : "Passed"} ${profile.name}`,
         );
-        setLastSwipeAction({ profileId: profile.id, direction });
-        setShowUndo(true);
-        setTimeout(() => setShowUndo(false), 5000);
       }
 
       loadNextProfile();
@@ -83,25 +67,8 @@ function SwipeCard({ userId }) {
     }
   };
 
-  const handleUndo = async () => {
-    if (lastSwipeAction) {
-      const undone = await undoLastSwipe(userId);
-      if (undone) {
-        toast.success("Swipe undone!");
-        loadNextProfile();
-        setShowUndo(false);
-      }
-    }
-  };
-
   const handleLikeWithMessage = async () => {
     if (!profile) return;
-
-    if (alreadyLikedMe) {
-      toast.error(`${profile.name} already liked you! Check Liked You tab.`);
-      loadNextProfile();
-      return;
-    }
 
     if (!messageText.trim()) {
       handleSwipe("like");
@@ -128,12 +95,6 @@ function SwipeCard({ userId }) {
   };
 
   const handleDragEnd = (event, info) => {
-    if (alreadyLikedMe) {
-      toast.error(`${profile.name} already liked you! Check Liked You tab.`);
-      loadNextProfile();
-      return;
-    }
-
     if (info.offset.x > 80) {
       handleSwipe("like");
     } else if (info.offset.x < -80) {
@@ -164,19 +125,17 @@ function SwipeCard({ userId }) {
     );
   }
 
-  if (noMore) {
-    return (
-      <div className="flex items-center justify-center h-[calc(100vh-80px)] overflow-hidden">
-        <div className="text-center">
-          <img src={sadLogo} className="w-24 h-24 mx-auto mb-4 grayscale" />
-          <h3 className="text-xl font-bold text-white mb-2">
-            No more profiles!
-          </h3>
-          <p className="text-white/60">Check back later for new people</p>
-        </div>
+if (noMore) {
+  return (
+    <div className="flex items-center justify-center h-[calc(100vh-80px)] overflow-hidden">
+      <div className="text-center">
+        <img src={sadLogo} className="w-24 h-24 mx-auto mb-4 grayscale" />
+        <h3 className="text-xl font-bold text-white mb-2">No more profiles!</h3>
+        <p className="text-white/60">Check back later for new people</p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   if (!profile) return null;
 
@@ -185,36 +144,13 @@ function SwipeCard({ userId }) {
   return (
     <div className="h-[calc(100vh-80px)] flex items-center justify-center overflow-hidden">
       <div className="w-full max-w-sm px-4">
-        {showUndo && (
-          <div className="mb-3 p-3 bg-blue-500/20 border border-blue-500 rounded-xl text-center">
-            <p className="text-blue-400 text-sm">Swipe recorded!</p>
-            <button
-              onClick={handleUndo}
-              className="text-blue-400 text-xs underline mt-1"
-            >
-              Undo
-            </button>
-          </div>
-        )}
-
-        {alreadyLikedMe && (
-          <div className="mb-3 p-2 bg-yellow-500/20 border border-yellow-500 rounded-xl text-center">
-            <p className="text-yellow-400 text-sm">
-              {profile.name} already liked you! Swipe to see next profile.
-            </p>
-          </div>
-        )}
-
         <motion.div
-          className={`w-full ${!alreadyLikedMe ? "cursor-grab active:cursor-grabbing" : "cursor-default opacity-75"}`}
-          style={{
-            x: alreadyLikedMe ? 0 : x,
-            rotate: alreadyLikedMe ? 0 : rotate,
-          }}
-          drag={!alreadyLikedMe ? "x" : false}
+          className="w-full cursor-grab active:cursor-grabbing"
+          style={{ x, rotate }}
+          drag="x"
           dragConstraints={{ left: 0, right: 0 }}
           onDragEnd={handleDragEnd}
-          whileTap={!alreadyLikedMe ? { cursor: "grabbing" } : {}}
+          whileTap={{ cursor: "grabbing" }}
         >
           <div className="relative bg-gradient-to-br from-gray-900 to-black rounded-2xl overflow-hidden border border-white/10">
             <div className="aspect-[3/4]">
@@ -305,7 +241,7 @@ function SwipeCard({ userId }) {
               </button>
               <button
                 onClick={handleLikeWithMessage}
-                disabled={sending || alreadyLikedMe}
+                disabled={sending}
                 className="flex-1 bg-green-500 text-white font-semibold py-2 rounded-xl hover:bg-green-600 transition-all disabled:opacity-50"
               >
                 {sending ? "Sending..." : "Send Like & Message"}
@@ -316,8 +252,7 @@ function SwipeCard({ userId }) {
           <div className="flex justify-center gap-4 mt-6">
             <button
               onClick={() => handleSwipe("pass")}
-              disabled={alreadyLikedMe}
-              className="w-14 h-14 rounded-full bg-red-500/20 backdrop-blur border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-14 h-14 rounded-full bg-red-500/20 backdrop-blur border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
             >
               <svg
                 className="w-7 h-7"
@@ -336,8 +271,7 @@ function SwipeCard({ userId }) {
 
             <button
               onClick={() => setShowMessageInput(true)}
-              disabled={alreadyLikedMe}
-              className="w-14 h-14 rounded-full bg-blue-500/20 backdrop-blur border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-14 h-14 rounded-full bg-blue-500/20 backdrop-blur border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
             >
               <svg
                 className="w-7 h-7"
@@ -356,8 +290,7 @@ function SwipeCard({ userId }) {
 
             <button
               onClick={() => handleSwipe("like")}
-              disabled={alreadyLikedMe}
-              className="w-14 h-14 rounded-full bg-green-500/20 backdrop-blur border-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-white transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-14 h-14 rounded-full bg-green-500/20 backdrop-blur border-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
             >
               <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />

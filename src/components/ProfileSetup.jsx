@@ -119,6 +119,7 @@ function ProfileSetup({
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, {
         name: formData.name,
+        username: formData.username,
         age: parseInt(formData.age),
         gender: formData.gender,
         interestedIn: formData.interestedIn,
@@ -271,6 +272,52 @@ function ProfileSetup({
               className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all"
               required
             />
+          </div>
+
+          <div>
+            <label className="text-white/80 text-sm mb-1 block">Username</label>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="@username (4-20 letters/numbers)"
+                  value={formData.username || ""}
+                  onChange={(e) => {
+                    const value = e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]/g, "");
+                    if (value.length <= 20) {
+                      setFormData({ ...formData, username: value });
+                    }
+                  }}
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all"
+                  required
+                />
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (formData.username && formData.username.length >= 4) {
+                    const available = await checkUsernameAvailable(
+                      formData.username,
+                    );
+                    if (available) {
+                      toast.success("Username available!");
+                    } else {
+                      toast.error("Username taken");
+                    }
+                  } else {
+                    toast.error("Username must be 4-20 characters");
+                  }
+                }}
+                className="bg-white/10 hover:bg-white/20 px-4 rounded-xl text-white/80 text-sm"
+              >
+                Check
+              </button>
+            </div>
+            <p className="text-white/40 text-xs mt-1">
+              Letters and numbers only, 4-20 characters
+            </p>
           </div>
 
           <div className="min-h-[120px]">

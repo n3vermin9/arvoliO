@@ -22,6 +22,7 @@ import LikedYou from "./components/LikedYou";
 import PreviousMatches from "./components/PreviousMatches";
 import BlockedUsers from "./components/BlockedUsers";
 import SkeletonLoader from "./components/SkeletonLoader";
+import SearchModal from "./components/SearchModal";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -38,6 +39,7 @@ function App() {
   const [likedByUsers, setLikedByUsers] = useState([]);
   const [previousLikeCount, setPreviousLikeCount] = useState(0);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [showSearch, setShowSearch] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -155,7 +157,9 @@ function App() {
     const data = await getUserData(user.uid);
     setUserData(data);
   };
-
+  useEffect(() => {
+    console.log("App re-rendered, currentView:", currentView);
+  }, [currentView]);
   const renderMainApp = () => {
     if (loading) {
       return (
@@ -231,7 +235,37 @@ function App() {
             },
           }}
         />
-
+        {currentView === "swipe" && (
+          <>
+            <div className="absolute top-4 right-4 z-10">
+              <button
+                onClick={() => setShowSearch(true)}
+                className="bg-black/50 p-2 rounded-full backdrop-blur"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </button>
+            </div>
+            <SwipeCard userId={user.uid} userData={userData} />
+          </>
+        )}
+        {showSearch && (
+          <SearchModal
+            onClose={() => setShowSearch(false)}
+            currentUserId={user.uid}
+          />
+        )}
         <nav className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-white/10 z-50 safe-area-bottom">
           <div className="flex justify-around items-center py-2">
             <button
@@ -305,11 +339,8 @@ function App() {
             </button>
           </div>
         </nav>
-
         <div className="pb-20">
-          {currentView === "swipe" && (
-            <SwipeCard userId={user.uid} userData={userData} />
-          )}
+
           {currentView === "matches" && (
             <div className="p-4">
               <MatchesList
