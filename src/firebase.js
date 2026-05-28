@@ -521,12 +521,13 @@ export const listenToUnreadCounts = (userId, callback) => {
 
       let unreadChats = 0;
       for (const match of matches) {
-        if (match.unreadCount > 0) {
+        if (match.unreadCount > 0 && !match.isMuted) {
           unreadChats += match.unreadCount;
         }
       }
 
       const usersRef = collection(db, "users");
+
       const querySnapshot = await getDocs(usersRef);
       let unreadLikes = 0;
       querySnapshot.forEach((doc) => {
@@ -543,7 +544,6 @@ export const listenToUnreadCounts = (userId, callback) => {
     }
   });
 };
-
 export const removeMatch = async (matchId, userId, otherUserId) => {
   const userRef = doc(db, "users", userId);
   const otherUserRef = doc(db, "users", otherUserId);
@@ -837,4 +837,30 @@ export const searchUsersByUsername = async (searchTerm) => {
   });
 
   return results.slice(0, 20);
+};
+
+export const muteChat = async (matchId, userId, isMuted) => {
+  const userRef = doc(db, "users", userId);
+  const userDoc = await getDoc(userRef);
+  if (userDoc.exists()) {
+    const userData = userDoc.data();
+    const updatedMatches = userData.matches.map((match) => {
+      if (match.id === matchId) {
+        return { ...match, isMuted: isMuted };
+      }
+      return match;
+    });
+    await updateDoc(userRef, { matches: updatedMatches });
+  }
+};
+
+export const isChatMuted = async (matchId, userId) => {
+  const userRef = doc(db, "users", userId);
+  const userDoc = await getDoc(userRef);
+  if (userDoc.exists()) {
+    const userData = userDoc.data();
+    const match = userData.matches?.find((m) => m.id === matchId);
+    return match?.isMuted || false;
+  }
+  return false;
 };

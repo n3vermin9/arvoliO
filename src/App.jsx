@@ -157,9 +157,7 @@ function App() {
     const data = await getUserData(user.uid);
     setUserData(data);
   };
-  useEffect(() => {
-    console.log("App re-rendered, currentView:", currentView);
-  }, [currentView]);
+
   const renderMainApp = () => {
     if (loading) {
       return (
@@ -215,22 +213,32 @@ function App() {
         <Toaster
           position="top-center"
           toastOptions={{
+            duration: 2000,
             style: {
               background: "#1a1a1a",
               color: "#fff",
               border: "1px solid #333",
-              borderRadius: "12px",
+              borderRadius: "9999px",
+              padding: "12px 20px",
             },
             success: {
+              duration: 2000,
               iconTheme: {
                 primary: "#10b981",
                 secondary: "#fff",
               },
+              style: {
+                borderRadius: "9999px",
+              },
             },
             error: {
+              duration: 2000,
               iconTheme: {
                 primary: "#ef4444",
                 secondary: "#fff",
+              },
+              style: {
+                borderRadius: "9999px",
               },
             },
           }}
@@ -340,7 +348,6 @@ function App() {
           </div>
         </nav>
         <div className="pb-20">
-
           {currentView === "matches" && (
             <div className="p-4">
               <MatchesList

@@ -9,8 +9,17 @@ import {
   updateTypingStatus,
   listenToTypingStatus,
   listenToUserStatus,
+  muteChat,
+  isChatMuted,
 } from "../firebase";
 import EmojiPicker from "emoji-picker-react";
+import { toast } from "react-hot-toast";
+import {
+  IconBell,
+  IconBellOff,
+  IconBellRinging,
+  IconBellOff as IconMute,
+} from "@tabler/icons-react";
 
 function Chat({ match, userId, onBack, onMatchRemoved }) {
   const [messages, setMessages] = useState([]);
@@ -32,10 +41,13 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     isOnline: false,
     lastSeen: null,
   });
+  const [showMenu, setShowMenu] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const typingTimeoutRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     setLoading(true);
@@ -59,6 +71,14 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
   }, [messages]);
 
   useEffect(() => {
+    const checkMuteStatus = async () => {
+      const muted = await isChatMuted(match.id, userId);
+      setIsMuted(muted);
+    };
+    checkMuteStatus();
+  }, [match.id, userId]);
+
+  useEffect(() => {
     const unsubscribeTyping = listenToTypingStatus(
       match.id,
       userId,
@@ -75,6 +95,16 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     });
     return () => unsubscribeStatus();
   }, [match.userId]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -97,6 +127,14 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     } finally {
       setSending(false);
     }
+  };
+
+  const handleMute = async () => {
+    const newMuteState = !isMuted;
+    await muteChat(match.id, userId, newMuteState);
+    setIsMuted(newMuteState);
+    toast.success(newMuteState ? "Chat muted" : "Chat unmuted");
+    setShowMenu(false);
   };
 
   const handleTyping = () => {
@@ -129,6 +167,11 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
       setBlocking(false);
       setShowBlockConfirm(false);
     }
+  };
+
+  const handleDeleteChat = () => {
+    setShowRemoveConfirm(true);
+    setShowMenu(false);
   };
 
   const viewProfile = async () => {
@@ -190,6 +233,22 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     if (fullScreenIndex > 0) {
       setFullScreenIndex(fullScreenIndex - 1);
     }
+  };
+
+  const getStatusText = () => {
+    if (isOtherTyping) {
+      return "typing...";
+    }
+    if (userStatus.isOnline) {
+      return "online";
+    }
+    return `last seen ${formatLastSeen(userStatus.lastSeen)}`;
+  };
+
+  const getStatusColor = () => {
+    if (isOtherTyping) return "text-white/80";
+    if (userStatus.isOnline) return "text-green-500";
+    return "text-white/40";
   };
 
   if (isFullScreen && otherUserProfile) {
@@ -497,85 +556,6 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     );
   }
 
-  if (showRemoveConfirm) {
-    return (
-      <div className="fixed inset-0 bg-black flex flex-col z-50">
-        <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => setShowRemoveConfirm(false)}
-            className="text-white flex items-center"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-xl">
-            ⚠️
-          </div>
-          <div>
-            <h2 className="text-white font-semibold">Remove Match</h2>
-            <p className="text-white/40 text-xs">This cannot be undone</p>
-          </div>
-        </div>
-
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="bg-red-500/10 border-2 border-red-500 rounded-2xl p-6 max-w-md w-full">
-            <div className="text-center mb-4">
-              <div className="text-5xl mb-2">💔</div>
-              <h2 className="text-2xl font-bold text-red-500">
-                Remove {match.name}?
-              </h2>
-              <p className="text-white/60 mt-2 text-sm">
-                This will permanently delete:
-              </p>
-            </div>
-
-            <div className="space-y-2 mb-6">
-              <div className="bg-black/50 rounded-xl p-3">
-                <p className="text-white/80 text-sm">
-                  • All messages between you
-                </p>
-                <p className="text-white/80 text-sm">
-                  • This match from your list
-                </p>
-                <p className="text-white/80 text-sm">
-                  • {match.name} will also lose this match
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowRemoveConfirm(false)}
-                disabled={removing}
-                className="flex-1 bg-white/10 text-white font-semibold py-3 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRemoveMatch}
-                disabled={removing}
-                className="flex-1 bg-red-500 text-white font-semibold py-3 rounded-xl hover:bg-red-600 transition-all disabled:opacity-50"
-              >
-                {removing ? "Removing..." : "Remove Forever"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="fixed inset-0 bg-black flex flex-col z-50">
       <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
@@ -611,29 +591,64 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
           )}
 
           <div className="text-left">
-            <h2 className="text-white font-semibold">{match.name}</h2>
-            <p className="text-xs text-white/40">
-              {userStatus.isOnline
-                ? "Online"
-                : `Last seen ${formatLastSeen(userStatus.lastSeen)}`}
-            </p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-white font-semibold">{match.name}</h2>
+              {isMuted && <IconBellOff size={16} className="text-white/40" />}
+            </div>
+            <p className={`text-xs ${getStatusColor()}`}>{getStatusText()}</p>
           </div>
         </button>
 
-        <button
-          onClick={() => setShowRemoveConfirm(true)}
-          disabled={removing}
-          className="text-red-400 text-sm px-3 py-1 rounded-lg active:bg-red-500/20 disabled:opacity-50"
-        >
-          Remove
-        </button>
-      </div>
-
-      {isOtherTyping && (
-        <div className="px-4 py-1 text-xs text-white/40 bg-black/50">
-          typing...
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="text-white/60 hover:text-white transition-all p-2"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+            </svg>
+          </button>
+          {showMenu && (
+            <div className="absolute right-0 top-full mt-1 w-48 bg-zinc-900 rounded-xl shadow-lg border border-white/10 overflow-hidden z-20">
+              <button
+                onClick={handleMute}
+                className="w-full text-left px-4 py-3 text-white/80 hover:bg-white/10 transition-all text-sm flex items-center gap-3"
+              >
+                {isMuted ? (
+                  <>
+                    <IconBell size={18} className="text-white/80" />
+                    Unmute
+                  </>
+                ) : (
+                  <>
+                    <IconBellOff size={18} className="text-white/80" />
+                    Mute
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleDeleteChat}
+                className="w-full text-left px-4 py-3 text-red-400 hover:bg-white/10 transition-all text-sm flex items-center gap-3"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                Delete chat
+              </button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       <div
         ref={messagesContainerRef}

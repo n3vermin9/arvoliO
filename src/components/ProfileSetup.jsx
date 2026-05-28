@@ -2,7 +2,9 @@ import React, { useState, useRef } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { updateProfile } from "firebase/auth";
+import { toast } from "react-hot-toast";
 import DeleteAccount from "./DeleteAccount";
+import { checkUsernameAvailable } from "../firebase";
 
 function ProfileSetup({
   userId,
@@ -13,6 +15,7 @@ function ProfileSetup({
 }) {
   const [formData, setFormData] = useState({
     name: existingData?.name || "",
+    username: existingData?.username || "",
     age: existingData?.age || 18,
     gender: existingData?.gender || null,
     interestedIn: existingData?.interestedIn || "both",
@@ -24,6 +27,8 @@ function ProfileSetup({
   const [startX, setStartX] = useState(0);
   const [startAge, setStartAge] = useState(formData.age);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
   const scrollRef = useRef(null);
   const isFirstTime = !existingData?.gender;
 
@@ -47,6 +52,34 @@ function ProfileSetup({
       (_, index) => index !== indexToRemove,
     );
     setFormData({ ...formData, photos: newPhotos });
+  };
+
+  const checkUsername = async () => {
+    if (!formData.username || formData.username.length < 4) {
+      toast.error("Username must be at least 4 characters");
+      return;
+    }
+    if (formData.username.length > 20) {
+      toast.error("Username must be less than 20 characters");
+      return;
+    }
+    if (!/^[a-z0-9]+$/.test(formData.username)) {
+      toast.error("Username can only contain lowercase letters and numbers");
+      return;
+    }
+    setCheckingUsername(true);
+    try {
+      const available = await checkUsernameAvailable(formData.username);
+      setUsernameAvailable(available);
+      toast.success(
+        available ? "Username available!" : "Username already taken",
+      );
+    } catch (error) {
+      console.error("Error checking username:", error);
+      toast.error("Failed to check username");
+    } finally {
+      setCheckingUsername(false);
+    }
   };
 
   const handleTouchStart = (e) => {
@@ -105,6 +138,24 @@ function ProfileSetup({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.username) {
+      toast.error("Username is required");
+      return;
+    }
+    if (formData.username.length < 4 || formData.username.length > 20) {
+      toast.error("Username must be 4-20 characters");
+      return;
+    }
+    if (!/^[a-z0-9]+$/.test(formData.username)) {
+      toast.error("Username can only contain lowercase letters and numbers");
+      return;
+    }
+    if (usernameAvailable === false) {
+      toast.error("Username already taken. Please choose another.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -132,7 +183,7 @@ function ProfileSetup({
       onComplete();
     } catch (error) {
       console.error("Error saving profile:", error);
-      alert("Failed to save profile. Please try again.");
+      toast.error("Failed to save profile. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -201,7 +252,7 @@ function ProfileSetup({
             <label className="text-white/80 text-sm mb-2 block">
               Profile Photos
             </label>
-            <div className="grid grid-cols-3 gap-2 items-start">
+            <div className="grid grid-cols-3 gap-2 mb-3">
               {[0, 1, 2].map((index) => (
                 <div key={index} className="relative aspect-square">
                   {formData.photos[index] ? (
@@ -278,46 +329,54 @@ function ProfileSetup({
             <label className="text-white/80 text-sm mb-1 block">Username</label>
             <div className="flex gap-2">
               <div className="flex-1">
-                <input
-                  type="text"
-                  placeholder="@username (4-20 letters/numbers)"
-                  value={formData.username || ""}
-                  onChange={(e) => {
-                    const value = e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9]/g, "");
-                    if (value.length <= 20) {
-                      setFormData({ ...formData, username: value });
-                    }
-                  }}
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all"
-                  required
-                />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40 text-sm">
+                    @
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="username"
+                    value={formData.username}
+                    onChange={(e) => {
+                      const value = e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]/g, "");
+                      if (value.length <= 20) {
+                        setFormData({ ...formData, username: value });
+                        setUsernameAvailable(null);
+                      }
+                    }}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-7 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all"
+                    required
+                  />
+                </div>
               </div>
               <button
                 type="button"
-                onClick={async () => {
-                  if (formData.username && formData.username.length >= 4) {
-                    const available = await checkUsernameAvailable(
-                      formData.username,
-                    );
-                    if (available) {
-                      toast.success("Username available!");
-                    } else {
-                      toast.error("Username taken");
-                    }
-                  } else {
-                    toast.error("Username must be 4-20 characters");
-                  }
-                }}
-                className="bg-white/10 hover:bg-white/20 px-4 rounded-xl text-white/80 text-sm"
+                onClick={checkUsername}
+                disabled={
+                  checkingUsername ||
+                  !formData.username ||
+                  formData.username.length < 4
+                }
+                className="bg-white/10 hover:bg-white/20 px-4 rounded-xl text-white/80 text-sm disabled:opacity-50"
               >
-                Check
+                {checkingUsername ? "..." : "Check"}
               </button>
             </div>
             <p className="text-white/40 text-xs mt-1">
-              Letters and numbers only, 4-20 characters
+              4-20 lowercase letters & numbers only
             </p>
+            {usernameAvailable === true && (
+              <p className="text-green-500 text-xs mt-1">
+                ✓ Username available
+              </p>
+            )}
+            {usernameAvailable === false && (
+              <p className="text-red-500 text-xs mt-1">
+                ✗ Username already taken
+              </p>
+            )}
           </div>
 
           <div className="min-h-[120px]">
@@ -481,7 +540,11 @@ function ProfileSetup({
           <button
             type="submit"
             disabled={
-              loading || formData.photos.length === 0 || !formData.gender
+              loading ||
+              formData.photos.length === 0 ||
+              !formData.gender ||
+              !formData.username ||
+              usernameAvailable === false
             }
             className="w-full bg-blue-500 text-white font-semibold py-3 rounded-xl hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -501,9 +564,9 @@ function ProfileSetup({
 
         <div className="mt-6 p-4 bg-white/5 rounded-xl">
           <p className="text-white/60 text-xs text-center">
-            Main photo and gender are required. Gender cannot be changed after
-            saving. Upload images to Imgur or another image host, then paste the
-            direct URL above
+            Main photo, username, and gender are required. Gender cannot be
+            changed after saving. Upload images to Imgur or another image host,
+            then paste the direct URL above
           </p>
         </div>
       </div>

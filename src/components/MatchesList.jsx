@@ -7,6 +7,7 @@ import {
 } from "../firebase";
 import sadLogo from "../assets/sad.png";
 import starLogo from "../assets/star.png";
+import { IconBell, IconBellOff } from "@tabler/icons-react";
 
 function MatchesList({ userId, onSelectMatch }) {
   const [matches, setMatches] = useState([]);
@@ -366,41 +367,53 @@ function MatchesList({ userId, onSelectMatch }) {
               </button>
 
               <div
-                className="flex-1 min-w-0"
+                className="flex items-center justify-between flex-1 min-w-0"
                 onClick={() => handleSelectMatch(match)}
               >
-                <div className="flex justify-between items-baseline">
-                  <h3 className="font-semibold text-white truncate">
-                    {match.name}
-                  </h3>
-                </div>
-                {match.lastMessage && (
-                  <div className="flex items-center gap-1 mt-1 min-w-0">
-                    {getReadReceipt(match) && (
-                      <span className="text-blue-400 text-xs flex-shrink-0">
-                        {getReadReceipt(match)}
-                      </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-white truncate">
+                      {match.name}
+                    </h3>
+                    {match.isMuted && (
+                      <IconBellOff
+                        size={16}
+                        className="text-white/40 flex-shrink-0"
+                      />
                     )}
-                    <p
-                      className={`text-xs font-light truncate ${match.unreadCount > 0 ? "text-white/80" : "text-white/40"}`}
-                    >
-                      {truncateText(match.lastMessage, 30)}
-                    </p>
                   </div>
-                )}
-              </div>
-
-              <div className="flex flex-col items-end justify-center gap-0.5">
-                {match.lastMessageTime && (
-                  <span className="text-white/40 text-[10px]">
-                    {formatTime(match.lastMessageTime)}
-                  </span>
-                )}
-                {match.unreadCount > 0 && (
-                  <div className="min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-bold px-1">
-                    {match.unreadCount > 9 ? "9+" : match.unreadCount}
-                  </div>
-                )}
+                  {match.lastMessage && (
+                    <div className="flex items-center gap-1 mt-1 min-w-0">
+                      {getReadReceipt(match) && (
+                        <span className="text-blue-400 text-xs flex-shrink-0">
+                          {getReadReceipt(match)}
+                        </span>
+                      )}
+                      <p
+                        className={`text-xs truncate ${match.unreadCount > 0 && !match.isMuted ? "text-white font-medium" : "text-white/40"}`}
+                      >
+                        {truncateText(match.lastMessage, 30)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col items-end justify-center gap-0.5">
+                  {match.lastMessageTime && (
+                    <span className="text-white/40 text-[10px]">
+                      {formatTime(match.lastMessageTime)}
+                    </span>
+                  )}
+                  {match.unreadCount > 0 && !match.isMuted && (
+                    <div className="min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-bold px-1">
+                      {match.unreadCount > 9 ? "9+" : match.unreadCount}
+                    </div>
+                  )}
+                  {match.unreadCount > 0 && match.isMuted && (
+                    <div className="min-w-[18px] h-[18px] bg-white/20 rounded-full flex items-center justify-center text-white/60 text-[9px] font-bold px-1">
+                      {match.unreadCount > 9 ? "9+" : match.unreadCount}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}
