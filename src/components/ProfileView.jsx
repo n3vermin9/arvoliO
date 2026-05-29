@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import ProfileSetup from "./ProfileSetup";
 import ShareModal from "./ShareModal";
+import { IconShare3 } from "@tabler/icons-react";
 
 function ProfileView({
   userData,
@@ -171,7 +172,7 @@ function ProfileView({
           </button>
         </div>
 
-        <div className="mb-6 flex justify-center">
+        <div className="mb-4 flex justify-center">
           {hasPhotos ? (
             photos.length === 1 ? (
               <div
@@ -227,15 +228,13 @@ function ProfileView({
           )}
         </div>
 
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-white">
+            {userData?.name || "Not set"}
+          </h2>
+        </div>
+
         <div className="bg-white/5 rounded-2xl p-6 space-y-4 mb-6">
-          <div>
-            <label className="text-white/40 text-xs uppercase tracking-wider">
-              Name
-            </label>
-            <p className="text-white text-lg font-semibold mt-1">
-              {userData?.name || "Not set"}
-            </p>
-          </div>
           <div>
             <label className="text-white/40 text-xs uppercase tracking-wider">
               Username
@@ -252,12 +251,22 @@ function ProfileView({
               </button>
             </div>
           </div>
+
           <div>
             <label className="text-white/40 text-xs uppercase tracking-wider">
               Age
             </label>
             <p className="text-white text-lg font-semibold mt-1">
               {userData?.age || "Not set"}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-white/40 text-xs uppercase tracking-wider">
+              Bio
+            </label>
+            <p className="text-white/80 mt-1 leading-relaxed">
+              {userData?.bio || "No bio yet"}
             </p>
           </div>
 
@@ -276,15 +285,6 @@ function ProfileView({
             </label>
             <p className="text-white text-lg font-semibold mt-1 capitalize">
               {userData?.interestedIn || "Both"}
-            </p>
-          </div>
-
-          <div>
-            <label className="text-white/40 text-xs uppercase tracking-wider">
-              Bio
-            </label>
-            <p className="text-white/80 mt-1 leading-relaxed">
-              {userData?.bio || "No bio yet"}
             </p>
           </div>
 
@@ -334,19 +334,7 @@ function ProfileView({
           onClick={handleShare}
           className="w-full mt-6 bg-white/10 hover:bg-white/20 text-white font-semibold py-3 rounded-full border border-white/20 transition-all flex items-center justify-center gap-2"
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.102m1.858-3.243a4 4 0 00-5.656 0m5.656 0l-4 4"
-            />
-          </svg>
+          <IconShare3 size={20} />
           Share Profile
         </button>
 

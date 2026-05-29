@@ -9,6 +9,7 @@ import {
 import sadLogo from "../assets/sad.png";
 import starLogo from "../assets/star.png";
 import ShareModal from "./ShareModal";
+import { IconShare3 } from "@tabler/icons-react";
 
 function ProfilePage() {
   const { userId } = useParams();
@@ -113,7 +114,7 @@ function ProfilePage() {
           onClose={() => setShowShareModal(false)}
         />
       )}
-      <div className="pt-6 px-4 pb-20">
+      <div className="pt-6 px-4 pb-24">
         <div className="max-w-md mx-auto">
           <div className="flex justify-between items-center mb-6">
             <button onClick={() => navigate("/")} className="text-white">
@@ -135,19 +136,7 @@ function ProfilePage() {
               onClick={handleShare}
               className="text-white/60 hover:text-white transition-all"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.102m1.858-3.243a4 4 0 00-5.656 0m5.656 0l-4 4"
-                />
-              </svg>
+              <IconShare3 size={20} />
             </button>
           </div>
 
@@ -164,33 +153,40 @@ function ProfilePage() {
             )}
 
             <h1 className="text-2xl font-bold text-white mt-4">
-              {profile.name}, {profile.age}
+              {profile.name}
             </h1>
             <p className="text-white/40 text-sm mt-1">@{profile.username}</p>
+            <p className="text-white/60 text-sm mt-1">
+              {profile.age} years old
+            </p>
             <p className="text-white/60 text-sm capitalize mt-1">
               {profile.gender}
             </p>
 
-            <div className="mt-6 p-4 bg-white/5 rounded-xl">
+            <div className="mt-6 p-4 bg-white/5 rounded-full">
               <p className="text-white/80">{profile.bio || "No bio yet"}</p>
             </div>
-
-            {isFriend ? (
-              <button
-                onClick={handleRemoveFriend}
-                className="w-full mt-6 bg-red-500/20 text-red-400 font-semibold py-3 rounded-full border border-red-500/50 hover:bg-red-500/30 transition-all"
-              >
-                Remove Friend
-              </button>
-            ) : (
-              <button
-                onClick={handleSendLike}
-                className="w-full mt-6 bg-blue-500 text-white font-semibold py-3 rounded-full hover:bg-blue-600 transition-all"
-              >
-                {currentUser ? "Send Like" : "Login to Send Like"}
-              </button>
-            )}
           </div>
+        </div>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black to-transparent">
+        <div className="max-w-md mx-auto">
+          {isFriend ? (
+            <button
+              onClick={handleRemoveFriend}
+              className="w-full bg-red-500/20 text-red-400 font-semibold py-3 rounded-full border border-red-500/50 hover:bg-red-500/30 transition-all"
+            >
+              Remove Friend
+            </button>
+          ) : (
+            <button
+              onClick={handleSendLike}
+              className="w-full bg-blue-500 text-white font-semibold py-3 rounded-full hover:bg-blue-600 transition-all"
+            >
+              {currentUser ? "Send Like" : "Login to Send Like"}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { updateProfile } from "firebase/auth";
@@ -32,6 +32,43 @@ function ProfileSetup({
   const scrollRef = useRef(null);
   const isFirstTime = !existingData?.gender;
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.username && formData.username !== existingData?.username) {
+        checkUsername();
+      } else if (formData.username === existingData?.username) {
+        setUsernameAvailable(true);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [formData.username]);
+
+  const checkUsername = async () => {
+    if (!formData.username || formData.username.length < 4) {
+      setUsernameAvailable(null);
+      return;
+    }
+    if (formData.username.length > 20) {
+      setUsernameAvailable(false);
+      return;
+    }
+    if (!/^[a-z0-9]+$/.test(formData.username)) {
+      setUsernameAvailable(false);
+      return;
+    }
+
+    setCheckingUsername(true);
+    try {
+      const available = await checkUsernameAvailable(formData.username);
+      setUsernameAvailable(available);
+    } catch (error) {
+      console.error("Error checking username:", error);
+      setUsernameAvailable(false);
+    } finally {
+      setCheckingUsername(false);
+    }
+  };
+
   const updatePhotoUrl = (index, url) => {
     const newPhotos = [...formData.photos];
     newPhotos[index] = url;
@@ -52,34 +89,6 @@ function ProfileSetup({
       (_, index) => index !== indexToRemove,
     );
     setFormData({ ...formData, photos: newPhotos });
-  };
-
-  const checkUsername = async () => {
-    if (!formData.username || formData.username.length < 4) {
-      toast.error("Username must be at least 4 characters");
-      return;
-    }
-    if (formData.username.length > 20) {
-      toast.error("Username must be less than 20 characters");
-      return;
-    }
-    if (!/^[a-z0-9]+$/.test(formData.username)) {
-      toast.error("Username can only contain lowercase letters and numbers");
-      return;
-    }
-    setCheckingUsername(true);
-    try {
-      const available = await checkUsernameAvailable(formData.username);
-      setUsernameAvailable(available);
-      toast.success(
-        available ? "Username available!" : "Username already taken",
-      );
-    } catch (error) {
-      console.error("Error checking username:", error);
-      toast.error("Failed to check username");
-    } finally {
-      setCheckingUsername(false);
-    }
   };
 
   const handleTouchStart = (e) => {
@@ -180,6 +189,7 @@ function ProfileSetup({
         updatedAt: new Date().toISOString(),
       });
 
+      toast.success("Profile updated successfully");
       onComplete();
     } catch (error) {
       console.error("Error saving profile:", error);
@@ -276,7 +286,19 @@ function ProfileSetup({
                   ) : (
                     <div className="w-full h-full bg-white/10 rounded-xl flex items-center justify-center border-2 border-dashed border-white/30">
                       <div className="text-center">
-                        <div className="text-2xl mb-1">📷</div>
+                        <svg
+                          className="w-8 h-8 mx-auto mb-1 text-white/40"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
                         <div className="text-white/40 text-xs">
                           Photo {index + 1}
                         </div>
@@ -290,9 +312,22 @@ function ProfileSetup({
               type="button"
               onClick={addPhotoSlot}
               disabled={formData.photos.length >= 3}
-              className="w-full py-2 bg-white/5 rounded-xl text-white/60 text-sm hover:bg-white/10 transition-all disabled:opacity-50"
+              className="w-full py-2 bg-white/5 rounded-full text-white/60 text-sm hover:bg-white/10 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              + Add Photo
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Add Photo
             </button>
           </div>
 
@@ -304,7 +339,7 @@ function ProfileSetup({
                 placeholder={`Photo ${index + 1} URL`}
                 value={photo}
                 onChange={(e) => updatePhotoUrl(index, e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all text-sm"
+                className="w-full bg-white/10 border border-white/20 rounded-full px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all text-sm"
               />
             ))}
           </div>
@@ -320,63 +355,58 @@ function ProfileSetup({
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
-              className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all"
+              className="w-full bg-white/10 border border-white/20 rounded-full px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all"
               required
             />
           </div>
 
           <div>
             <label className="text-white/80 text-sm mb-1 block">Username</label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40 text-sm">
-                    @
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="username"
-                    value={formData.username}
-                    onChange={(e) => {
-                      const value = e.target.value
-                        .toLowerCase()
-                        .replace(/[^a-z0-9]/g, "");
-                      if (value.length <= 20) {
-                        setFormData({ ...formData, username: value });
-                        setUsernameAvailable(null);
-                      }
-                    }}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-7 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all"
-                    required
-                  />
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/40 text-sm z-10">
+                @
+              </span>
+              <input
+                type="text"
+                placeholder="username"
+                value={formData.username}
+                onChange={(e) => {
+                  const value = e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]/g, "");
+                  if (value.length <= 20) {
+                    setFormData({ ...formData, username: value });
+                  }
+                }}
+                className={`w-full bg-white/10 border rounded-full px-8 py-3 text-white placeholder-white/50 focus:outline-none transition-all ${
+                  usernameAvailable === true
+                    ? "border-green-500 focus:border-green-500"
+                    : usernameAvailable === false
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-white/20 focus:border-blue-500"
+                }`}
+                required
+              />
+              {checkingUsername && (
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={checkUsername}
-                disabled={
-                  checkingUsername ||
-                  !formData.username ||
-                  formData.username.length < 4
-                }
-                className="bg-white/10 hover:bg-white/20 px-4 rounded-xl text-white/80 text-sm disabled:opacity-50"
-              >
-                {checkingUsername ? "..." : "Check"}
-              </button>
+              )}
             </div>
             <p className="text-white/40 text-xs mt-1">
               4-20 lowercase letters & numbers only
             </p>
-            {usernameAvailable === true && (
-              <p className="text-green-500 text-xs mt-1">
-                ✓ Username available
-              </p>
-            )}
             {usernameAvailable === false && (
               <p className="text-red-500 text-xs mt-1">
-                ✗ Username already taken
+                Username already taken
               </p>
             )}
+            {usernameAvailable === true &&
+              formData.username !== existingData?.username && (
+                <p className="text-green-500 text-xs mt-1">
+                  Username available
+                </p>
+              )}
           </div>
 
           <div className="min-h-[120px]">
@@ -430,7 +460,7 @@ function ProfileSetup({
                 type="button"
                 onClick={() => setGender("male")}
                 disabled={isGenderLocked && formData.gender !== "male"}
-                className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                className={`flex-1 py-3 rounded-full font-semibold transition-all ${
                   formData.gender === "male"
                     ? "bg-blue-500 text-white"
                     : "bg-white/10 text-white/60 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -442,7 +472,7 @@ function ProfileSetup({
                 type="button"
                 onClick={() => setGender("female")}
                 disabled={isGenderLocked && formData.gender !== "female"}
-                className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                className={`flex-1 py-3 rounded-full font-semibold transition-all ${
                   formData.gender === "female"
                     ? "bg-blue-500 text-white"
                     : "bg-white/10 text-white/60 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -454,7 +484,7 @@ function ProfileSetup({
                 type="button"
                 onClick={() => setGender("other")}
                 disabled={isGenderLocked && formData.gender !== "other"}
-                className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                className={`flex-1 py-3 rounded-full font-semibold transition-all ${
                   formData.gender === "other"
                     ? "bg-blue-500 text-white"
                     : "bg-white/10 text-white/60 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -487,7 +517,7 @@ function ProfileSetup({
                 onClick={() =>
                   setFormData({ ...formData, interestedIn: "male" })
                 }
-                className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                className={`flex-1 py-3 rounded-full font-semibold transition-all ${
                   formData.interestedIn === "male"
                     ? "bg-blue-500 text-white"
                     : "bg-white/10 text-white/60 hover:bg-white/20"
@@ -500,7 +530,7 @@ function ProfileSetup({
                 onClick={() =>
                   setFormData({ ...formData, interestedIn: "female" })
                 }
-                className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                className={`flex-1 py-3 rounded-full font-semibold transition-all ${
                   formData.interestedIn === "female"
                     ? "bg-blue-500 text-white"
                     : "bg-white/10 text-white/60 hover:bg-white/20"
@@ -513,7 +543,7 @@ function ProfileSetup({
                 onClick={() =>
                   setFormData({ ...formData, interestedIn: "both" })
                 }
-                className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                className={`flex-1 py-3 rounded-full font-semibold transition-all ${
                   formData.interestedIn === "both"
                     ? "bg-blue-500 text-white"
                     : "bg-white/10 text-white/60 hover:bg-white/20"
@@ -533,7 +563,7 @@ function ProfileSetup({
                 setFormData({ ...formData, bio: e.target.value })
               }
               rows="4"
-              className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all resize-none"
+              className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all resize-none"
             />
           </div>
 
@@ -544,9 +574,11 @@ function ProfileSetup({
               formData.photos.length === 0 ||
               !formData.gender ||
               !formData.username ||
-              usernameAvailable === false
+              usernameAvailable === false ||
+              checkingUsername ||
+              (formData.username.length > 0 && formData.username.length < 4)
             }
-            className="w-full bg-blue-500 text-white font-semibold py-3 rounded-xl hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-blue-500 text-white font-semibold py-3 rounded-full hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading
               ? "Saving..."

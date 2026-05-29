@@ -119,7 +119,7 @@ function DeleteAccount({ userId, onAccountDeleted }) {
     <button
       onClick={deleteUserData}
       disabled={deleting}
-      className="w-full mt-3 bg-red-500 text-white font-semibold py-3 rounded-xl hover:bg-red-600 transition-all active:scale-95 disabled:opacity-50"
+      className="w-full  bg-red-500 text-white font-semibold py-3 rounded-full hover:bg-red-600 transition-all active:scale-95 disabled:opacity-50"
     >
       {deleting ? "Deleting..." : "Delete Account"}
     </button>
