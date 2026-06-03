@@ -41,9 +41,26 @@ function App() {
   const [previousLikeCount, setPreviousLikeCount] = useState(0);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
+  const [preservedSearchState, setPreservedSearchState] = useState(null);
+  const [searchRestorePending, setSearchRestorePending] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (location.state?.restoreSearch) {
+      setShowSearch(true);
+      setPreservedSearchState(location.state.searchState);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
+  useEffect(() => {
+    if (searchRestorePending) {
+      setShowSearch(true);
+      setSearchRestorePending(false);
+    }
+  }, [searchRestorePending]);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
@@ -128,6 +145,20 @@ function App() {
   }, [user, previousLikeCount]);
 
   useEffect(() => {
+    if (location.state?.openChat && user) {
+      const matchToOpen = {
+        id: location.state.matchId,
+        userId: location.state.userId,
+        name: location.state.userName,
+        photos: location.state.userPhoto ? [location.state.userPhoto] : [],
+      };
+      setSelectedMatch(matchToOpen);
+      setCurrentView("chat");
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, user, navigate]);
+
+  useEffect(() => {
     if (user && currentView === "chat" && selectedMatch) {
       const unsubscribeMatches = listenToMatches(user.uid, (matches) => {
         const stillMatch = matches.some((m) => m.id === selectedMatch.id);
@@ -157,6 +188,19 @@ function App() {
   const refreshProfile = async () => {
     const data = await getUserData(user.uid);
     setUserData(data);
+  };
+
+  const handleNavigateToProfile = (userId, searchState) => {
+    setShowSearch(false);
+    setPreservedSearchState(searchState);
+    navigate(`/profile/${userId}`, {
+      state: { fromSearch: true, searchState: searchState },
+    });
+  };
+
+  const handleRestoreSearch = (searchState) => {
+    setPreservedSearchState(searchState);
+    setShowSearch(true);
   };
 
   const renderMainApp = () => {
@@ -214,16 +258,17 @@ function App() {
         <Toaster
           position="top-center"
           toastOptions={{
-            duration: 2000,
+            duration: 1000,
             style: {
               background: "#1a1a1a",
               color: "#fff",
               border: "1px solid #333",
               borderRadius: "9999px",
               padding: "12px 20px",
+              marginTop: "60px",
             },
             success: {
-              duration: 2000,
+              duration: 1000,
               iconTheme: {
                 primary: "#10b981",
                 secondary: "#fff",
@@ -233,7 +278,7 @@ function App() {
               },
             },
             error: {
-              duration: 2000,
+              duration: 1000,
               iconTheme: {
                 primary: "#ef4444",
                 secondary: "#fff",
@@ -245,226 +290,239 @@ function App() {
           }}
         />
 
-        {currentView === "swipe" && (
+        {!showSearch && (
           <>
-            <div className="absolute top-4 right-4 z-10">
-              <button
-                onClick={() => setShowSearch(true)}
-                className="bg-black/50 p-2 rounded-full backdrop-blur"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {currentView === "swipe" && (
+              <div className="absolute top-4 right-4 z-10">
+                <button
+                  onClick={() => setShowSearch(true)}
+                  className="bg-black/50 p-2 rounded-full backdrop-blur"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {currentView === "swipe" && (
+              <SwipeCard userId={user.uid} userData={userData} />
+            )}
+
+            <nav className="fixed bottom-4 left-4 right-4 bg-black/60 backdrop-blur-xl border border-white/10 z-50 rounded-full shadow-lg">
+              <div className="flex justify-around items-center relative py-1">
+                {["swipe", "matches", "liked", "profile"].map((view, index) => {
+                  const isActive = currentView === view;
+                  const icons = {
+                    swipe: (
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                      </svg>
+                    ),
+                    matches: (
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2z" />
+                      </svg>
+                    ),
+                    liked: (
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                      </svg>
+                    ),
+                    profile: (
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                      </svg>
+                    ),
+                  };
+                  const labels = {
+                    swipe: "Discover",
+                    matches: "Chats",
+                    liked: "Liked You",
+                    profile: "Profile",
+                  };
+                  const badgeCount =
+                    view === "matches"
+                      ? unreadChats
+                      : view === "liked"
+                        ? likedByUsers.length
+                        : 0;
+
+                  return (
+                    <button
+                      key={view}
+                      onClick={() => setCurrentView(view)}
+                      className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-3 z-10 transition-all duration-200"
+                      style={{
+                        transform: isActive ? "scale(1.1)" : "scale(1)",
+                      }}
+                    >
+                      <div className="relative">
+                        <div
+                          className={`transition-all duration-200 ${isActive ? "text-white" : "text-white/40"}`}
+                        >
+                          {icons[view]}
+                        </div>
+                        {badgeCount > 0 && (
+                          <div className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-red-500 rounded-full flex items-center justify-center text-white text-[8px] font-bold px-0.5">
+                            {badgeCount > 9 ? "9+" : badgeCount}
+                          </div>
+                        )}
+                      </div>
+                      <span
+                        className={`text-[9px] transition-all duration-200 ${isActive ? "text-white" : "text-white/40"}`}
+                      >
+                        {labels[view]}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                <div
+                  className="absolute top-1 bottom-1 w-1/4 bg-white/15 backdrop-blur rounded-full transition-all duration-300 ease-out"
+                  style={{
+                    left: `calc(${["swipe", "matches", "liked", "profile"].indexOf(currentView)} * 25%)`,
+                  }}
+                />
+              </div>
+            </nav>
+
+            <div className="pb-24">
+              <AnimatePresence mode="wait">
+                {currentView === "matches" && (
+                  <motion.div
+                    key="matches"
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <div className="p-4">
+                      <MatchesList
+                        userId={user.uid}
+                        onSelectMatch={(match) => {
+                          setSelectedMatch(match);
+                          setCurrentView("chat");
+                        }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+
+                {currentView === "liked" && (
+                  <motion.div
+                    key="liked"
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <div className="p-4">
+                      <LikedYou
+                        userId={user.uid}
+                        onMatch={() => {
+                          setCurrentView("matches");
+                          refreshProfile();
+                        }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+
+                {currentView === "profile" && (
+                  <motion.div
+                    key="profile"
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ProfileView
+                      userData={userData}
+                      userId={user.uid}
+                      onUpdate={refreshProfile}
+                      onLogout={handleLogout}
+                      onShowPreviousMatches={() => setShowPreviousMatches(true)}
+                      onShowBlockedUsers={() => setShowBlockedUsers(true)}
+                    />
+                  </motion.div>
+                )}
+
+                {currentView === "chat" && selectedMatch && (
+                  <motion.div
+                    key="chat"
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Chat
+                      match={selectedMatch}
+                      userId={user.uid}
+                      onBack={() => {
+                        setSelectedMatch(null);
+                        setCurrentView("matches");
+                      }}
+                      onMatchRemoved={() => {
+                        setSelectedMatch(null);
+                        setCurrentView("matches");
+                        refreshProfile();
+                      }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            <SwipeCard userId={user.uid} userData={userData} />
           </>
         )}
 
         {showSearch && (
           <SearchModal
-            onClose={() => setShowSearch(false)}
+            onClose={() => {
+              setShowSearch(false);
+              setPreservedSearchState(null);
+            }}
             currentUserId={user.uid}
+            initialSearchState={preservedSearchState}
+            onNavigateToProfile={handleNavigateToProfile}
           />
         )}
-
-        <nav className="fixed bottom-4 left-4 right-4 bg-black/60 backdrop-blur-xl border border-white/10 z-50 rounded-full shadow-lg">
-          <div className="flex justify-around items-center relative py-1">
-            {["swipe", "matches", "liked", "profile"].map((view, index) => {
-              const isActive = currentView === view;
-              const icons = {
-                swipe: (
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                  </svg>
-                ),
-                matches: (
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2z" />
-                  </svg>
-                ),
-                liked: (
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                  </svg>
-                ),
-                profile: (
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
-                ),
-              };
-              const labels = {
-                swipe: "Discover",
-                matches: "Chats",
-                liked: "Liked You",
-                profile: "Profile",
-              };
-              const badgeCount =
-                view === "matches"
-                  ? unreadChats
-                  : view === "liked"
-                    ? likedByUsers.length
-                    : 0;
-
-              return (
-                <button
-                  key={view}
-                  onClick={() => setCurrentView(view)}
-                  className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-3 z-10 transition-all duration-200"
-                  style={{
-                    transform: isActive ? "scale(1.1)" : "scale(1)",
-                  }}
-                >
-                  <div className="relative">
-                    <div
-                      className={`transition-all duration-200 ${isActive ? "text-white" : "text-white/40"}`}
-                    >
-                      {icons[view]}
-                    </div>
-                    {badgeCount > 0 && (
-                      <div className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-red-500 rounded-full flex items-center justify-center text-white text-[8px] font-bold px-0.5">
-                        {badgeCount > 9 ? "9+" : badgeCount}
-                      </div>
-                    )}
-                  </div>
-                  <span
-                    className={`text-[9px] transition-all duration-200 ${isActive ? "text-white" : "text-white/40"}`}
-                  >
-                    {labels[view]}
-                  </span>
-                </button>
-              );
-            })}
-
-            <div
-              className="absolute top-1 bottom-1 w-1/4 bg-white/15 backdrop-blur rounded-full transition-all duration-300 ease-out"
-              style={{
-                left: `calc(${["swipe", "matches", "liked", "profile"].indexOf(currentView)} * 25%)`,
-              }}
-            />
-          </div>
-        </nav>
-
-        <div className="pb-24">
-          <AnimatePresence mode="wait">
-            {currentView === "matches" && (
-              <motion.div
-                key="matches"
-                initial={{ opacitscale: 1, scale: 1.05 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacitscale: 1, scale: 1 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="p-4">
-                  <MatchesList
-                    userId={user.uid}
-                    onSelectMatch={(match) => {
-                      setSelectedMatch(match);
-                      setCurrentView("chat");
-                    }}
-                  />
-                </div>
-              </motion.div>
-            )}
-
-            {currentView === "liked" && (
-              <motion.div
-                key="liked"
-                initial={{ opacitscale: 1, scale: 1.05 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacitscale: 1, scale: 1 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="p-4">
-                  <LikedYou
-                    userId={user.uid}
-                    onMatch={() => {
-                      setCurrentView("matches");
-                      refreshProfile();
-                    }}
-                  />
-                </div>
-              </motion.div>
-            )}
-
-            {currentView === "profile" && (
-              <motion.div
-                key="profile"
-                initial={{ opacitscale: 1, scale: 1.05 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacitscale: 1, scale: 1 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ProfileView
-                  userData={userData}
-                  userId={user.uid}
-                  onUpdate={refreshProfile}
-                  onLogout={handleLogout}
-                  onShowPreviousMatches={() => setShowPreviousMatches(true)}
-                  onShowBlockedUsers={() => setShowBlockedUsers(true)}
-                />
-              </motion.div>
-            )}
-
-            {currentView === "chat" && selectedMatch && (
-              <motion.div
-                key="chat"
-                initial={{ opacitscale: 1, scale: 1.05 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacitscale: 1, scale: 1 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Chat
-                  match={selectedMatch}
-                  userId={user.uid}
-                  onBack={() => {
-                    setSelectedMatch(null);
-                    setCurrentView("matches");
-                  }}
-                  onMatchRemoved={() => {
-                    setSelectedMatch(null);
-                    setCurrentView("matches");
-                    refreshProfile();
-                  }}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
       </div>
     );
   };
 
   return (
     <Routes>
-      <Route path="/profile/:userId" element={<ProfilePage />} />
+      <Route
+        path="/profile/:userId"
+        element={<ProfilePage onRestoreSearch={handleRestoreSearch} />}
+      />
       <Route path="*" element={renderMainApp()} />
     </Routes>
   );

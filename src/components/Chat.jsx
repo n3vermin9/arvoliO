@@ -11,14 +11,16 @@ import {
   listenToUserStatus,
   muteChat,
   isChatMuted,
+  deleteMessage,
 } from "../firebase";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "react-hot-toast";
 import {
   IconBell,
   IconBellOff,
-  IconBellRinging,
-  IconBellOff as IconMute,
+  IconDots,
+  IconCopy,
+  IconTrash,
 } from "@tabler/icons-react";
 
 function Chat({ match, userId, onBack, onMatchRemoved }) {
@@ -37,17 +39,24 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [fullScreenIndex, setFullScreenIndex] = useState(0);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [showMessageMenu, setShowMessageMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [selectedMessageRect, setSelectedMessageRect] = useState(null);
   const [userStatus, setUserStatus] = useState({
     isOnline: false,
     lastSeen: null,
   });
   const [showMenu, setShowMenu] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [savedScrollPosition, setSavedScrollPosition] = useState(0);
   const typingTimeoutRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const menuRef = useRef(null);
+  const messageMenuRef = useRef(null);
+  const emojiPickerRef = useRef(null);
 
   useEffect(() => {
     setLoading(true);
@@ -98,13 +107,75 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setShowMenu(false);
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target)
+      ) {
+        setShowEmojiPicker(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+      if (
+        messageMenuRef.current &&
+        !messageMenuRef.current.contains(event.target)
+      ) {
+        setShowMessageMenu(false);
+        setSelectedMessage(null);
+        setSelectedMessageRect(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (showMessageMenu) {
+      document.body.style.overflow = "hidden";
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.style.overflow = "hidden";
+      }
+    } else {
+      document.body.style.overflow = "";
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.style.overflow = "auto";
+      }
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.style.overflow = "auto";
+      }
+    };
+  }, [showMessageMenu]);
+
+  useEffect(() => {
+    if (showProfile && messagesContainerRef.current) {
+      setSavedScrollPosition(messagesContainerRef.current.scrollTop);
+    }
+  }, [showProfile]);
+
+  useEffect(() => {
+    if (
+      !showProfile &&
+      messagesContainerRef.current &&
+      savedScrollPosition > 0
+    ) {
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = savedScrollPosition;
+        }
+      }, 100);
+    }
+  }, [showProfile]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -135,6 +206,10 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     setIsMuted(newMuteState);
     toast.success(newMuteState ? "Chat muted" : "Chat unmuted");
     setShowMenu(false);
+  };
+
+  const handleCloseProfile = () => {
+    setShowProfile(false);
   };
 
   const handleTyping = () => {
@@ -183,8 +258,57 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
 
   const onEmojiClick = (emojiObject) => {
     setNewMessage((prev) => prev + emojiObject.emoji);
-    setShowEmojiPicker(false);
     inputRef.current?.focus();
+  };
+
+  const handleCopyMessage = async () => {
+    if (!selectedMessage) return;
+
+    try {
+      await navigator.clipboard.writeText(selectedMessage.message);
+      toast.success("Message copied to clipboard");
+      setShowMessageMenu(false);
+      setSelectedMessage(null);
+      setSelectedMessageRect(null);
+    } catch (error) {
+      console.error("Failed to copy message:", error);
+      toast.error("Failed to copy message");
+    }
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!selectedMessage) return;
+
+    setShowMessageMenu(false);
+    setSelectedMessage(null);
+    setSelectedMessageRect(null);
+
+    try {
+      await deleteMessage(match.id, selectedMessage.id);
+      setMessages((prev) =>
+        prev.filter((msg) => msg.id !== selectedMessage.id),
+      );
+      toast.success("Message deleted");
+    } catch (error) {
+      console.error("Failed to delete message:", error);
+      toast.error("Failed to delete message");
+    }
+  };
+
+  const handleMessageContextMenu = (e, msg) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    setSelectedMessage(msg);
+    setSelectedMessageRect(rect);
+
+    if (msg.senderId === userId) {
+      setMenuPosition({ x: rect.right - 200, y: rect.top - 50 });
+    } else {
+      setMenuPosition({ x: rect.left + 30, y: rect.top - 50 });
+    }
+    setShowMessageMenu(true);
   };
 
   const formatTime = (timestamp) => {
@@ -210,16 +334,6 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     if (nextMessage && nextMessage.senderId === userId) return null;
     if (msg.read) return "✓✓";
     return "✓";
-  };
-
-  const hasScrollbar = () => {
-    if (messagesContainerRef.current) {
-      return (
-        messagesContainerRef.current.scrollHeight >
-        messagesContainerRef.current.clientHeight
-      );
-    }
-    return false;
   };
 
   const fullScreenNext = () => {
@@ -250,6 +364,9 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     if (userStatus.isOnline) return "text-green-500";
     return "text-white/40";
   };
+
+  const messageHeight = selectedMessageRect?.height;
+  const isOwnMessage = selectedMessage?.senderId === userId;
 
   if (isFullScreen && otherUserProfile) {
     const profilePhotos = otherUserProfile.photos || [];
@@ -320,129 +437,131 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     );
   }
 
-  if (showProfile && otherUserProfile) {
-    const profilePhotos = otherUserProfile.photos || [];
+if (showProfile && otherUserProfile) {
+  const profilePhotos = otherUserProfile.photos || [];
 
-    return (
+  return (
+    <>
       <div
-        className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-        onClick={() => setShowProfile(false)}
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+        onClick={handleCloseProfile}
+      />
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={handleCloseProfile}
       >
         <div
-          className="bg-white/5 rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto"
+          className="relative bg-[#1c1c1e] rounded-[40px] max-w-sm w-full overflow-y-auto max-h-[80vh] shadow-xl animate-in fade-in zoom-in duration-200"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="p-6 space-y-4">
-            {profilePhotos.length > 0 ? (
-              <>
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setFullScreenIndex(currentPhotoIndex);
-                      setIsFullScreen(true);
-                    }}
-                    className="mx-auto block"
-                  >
-                    <img
-                      src={profilePhotos[currentPhotoIndex]}
-                      className="w-32 h-32 rounded-full object-cover mx-auto hover:opacity-80 transition-opacity"
-                    />
-                  </button>
+          <div className="p-5">
+            <div className="text-center">
+              {profilePhotos.length > 0 ? (
+                <>
+                  <div className="relative">
+                    <button
+                      onClick={() => {
+                        setFullScreenIndex(currentPhotoIndex);
+                        setIsFullScreen(true);
+                      }}
+                      className="mx-auto block"
+                    >
+                      <img
+                        src={profilePhotos[currentPhotoIndex]}
+                        className="w-24 h-24 rounded-full object-cover mx-auto hover:opacity-80 transition-opacity"
+                      />
+                    </button>
+                    {profilePhotos.length > 1 && (
+                      <div className="flex justify-center gap-1 mt-2">
+                        {profilePhotos.map((_, idx) => (
+                          <div
+                            key={idx}
+                            className={`h-1 rounded-full transition-all ${
+                              idx === currentPhotoIndex
+                                ? "w-4 bg-white"
+                                : "w-1 bg-white/50"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   {profilePhotos.length > 1 && (
-                    <div className="flex justify-center gap-1 mt-2">
-                      {profilePhotos.map((_, idx) => (
-                        <div
-                          key={idx}
-                          className={`h-1 rounded-full transition-all ${
-                            idx === currentPhotoIndex
-                              ? "w-4 bg-white"
-                              : "w-1 bg-white/50"
-                          }`}
-                        />
-                      ))}
+                    <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 mt-3">
+                      <div className="flex gap-2 justify-center">
+                        {profilePhotos.map((photo, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setCurrentPhotoIndex(idx)}
+                            className={`flex-shrink-0 w-12 h-12 rounded-full overflow-hidden border-2 transition-all ${
+                              idx === currentPhotoIndex
+                                ? "border-blue-500"
+                                : "border-white/30"
+                            }`}
+                          >
+                            <img
+                              src={photo}
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
+                </>
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-4xl mx-auto">
+                  👤
                 </div>
+              )}
 
-                {profilePhotos.length > 1 && (
-                  <div className="overflow-x-auto scrollbar-hide -mx-2 px-2">
-                    <div className="flex gap-2 justify-center">
-                      {profilePhotos.map((photo, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setCurrentPhotoIndex(idx)}
-                          className={`flex-shrink-0 w-12 h-12 rounded-full overflow-hidden border-2 transition-all ${
-                            idx === currentPhotoIndex
-                              ? "border-blue-500"
-                              : "border-white/30"
-                          }`}
-                        >
-                          <img
-                            src={photo}
-                            className="w-full h-full object-cover"
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-5xl mx-auto">
-                👤
-              </div>
-            )}
-
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-white">
+              <h2 className="text-white text-xl font-semibold mt-4">
                 {otherUserProfile.name}, {otherUserProfile.age}
               </h2>
               <p className="text-white/60 text-sm capitalize mt-1">
                 {otherUserProfile.gender}
               </p>
-            </div>
 
-            <div className="border-t border-white/10 pt-4">
-              <label className="text-white/40 text-xs uppercase tracking-wider">
-                Bio
-              </label>
-              <p className="text-white/80 mt-1 leading-relaxed">
-                {otherUserProfile.bio || "No bio yet"}
-              </p>
-            </div>
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <p className="text-white/80 text-sm leading-relaxed">
+                  {otherUserProfile.bio || "No bio yet"}
+                </p>
+              </div>
 
-            <div className="border-t border-white/10 pt-4">
-              <label className="text-white/40 text-xs uppercase tracking-wider">
-                Member Since
-              </label>
-              <p className="text-white/60 text-sm mt-1">
-                {otherUserProfile.createdAt
-                  ? new Date(otherUserProfile.createdAt).toLocaleDateString()
-                  : "Just joined"}
-              </p>
+              <div className="mt-3 pt-2">
+                <p className="text-white/40 text-xs">
+                  Member since{" "}
+                  {otherUserProfile.createdAt
+                    ? new Date(otherUserProfile.createdAt).toLocaleDateString()
+                    : "Just joined"}
+                </p>
+              </div>
             </div>
+          </div>
 
+          <div className="space-y-2 p-4 pt-0">
             <button
               onClick={() => {
                 setShowProfile(false);
                 setShowBlockConfirm(true);
               }}
-              className="w-full mt-2 bg-red-500/20 text-red-500 font-semibold py-2 rounded-xl border border-red-500/50 hover:bg-red-500/30 transition-all"
+              className="w-full py-4 rounded-full bg-red-500/20 text-red-500 font-semibold text-center hover:bg-red-500/30 active:scale-95 transition-all"
             >
               Block User
             </button>
-
             <button
-              onClick={() => setShowProfile(false)}
-              className="w-full mt-2 bg-blue-500/20 text-blue-400 font-semibold py-2 rounded-xl hover:bg-blue-500/30 transition-all"
+              onClick={handleCloseProfile}
+              className="w-full py-4 rounded-full hover:bg-white/10 text-white/80 font-semibold text-center active:bg-white/20 transition-all"
             >
               Close
             </button>
           </div>
         </div>
       </div>
-    );
-  }
+    </>
+  );
+}
 
   if (showBlockConfirm) {
     return (
@@ -556,219 +675,406 @@ function Chat({ match, userId, onBack, onMatchRemoved }) {
     );
   }
 
-  return (
-    <div className="fixed inset-0 bg-black flex flex-col z-50">
-      <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
-        <button onClick={onBack} className="text-white flex items-center">
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-        </button>
-
-        <button
-          onClick={viewProfile}
-          className="flex items-center gap-3 flex-1 active:opacity-70"
-        >
-          {match.photos && match.photos[0] ? (
-            <img
-              src={match.photos[0]}
-              className="w-10 h-10 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xl">
-              👤
-            </div>
-          )}
-
-          <div className="text-left">
-            <div className="flex items-center gap-2">
-              <h2 className="text-white font-semibold">{match.name}</h2>
-              {isMuted && <IconBellOff size={16} className="text-white/40" />}
-            </div>
-            <p className={`text-xs ${getStatusColor()}`}>{getStatusText()}</p>
-          </div>
-        </button>
-
-        <div className="relative" ref={menuRef}>
+  if (showRemoveConfirm) {
+    return (
+      <div className="fixed inset-0 bg-black flex flex-col z-50">
+        <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
           <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="text-white/60 hover:text-white transition-all p-2"
+            onClick={() => setShowRemoveConfirm(false)}
+            className="text-white flex items-center"
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
-          {showMenu && (
-            <div className="absolute right-0 top-full mt-1 w-48 bg-zinc-900 rounded-xl shadow-lg border border-white/10 overflow-hidden z-20">
-              <button
-                onClick={handleMute}
-                className="w-full text-left px-4 py-3 text-white/80 hover:bg-white/10 transition-all text-sm flex items-center gap-3"
-              >
-                {isMuted ? (
-                  <>
-                    <IconBell size={18} className="text-white/80" />
-                    Unmute
-                  </>
-                ) : (
-                  <>
-                    <IconBellOff size={18} className="text-white/80" />
-                    Mute
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handleDeleteChat}
-                className="w-full text-left px-4 py-3 text-red-400 hover:bg-white/10 transition-all text-sm flex items-center gap-3"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-                Delete chat
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div
-        ref={messagesContainerRef}
-        className={`flex-1 overflow-y-auto p-4 space-y-2 ${!hasScrollbar() ? "scrollbar-hide" : ""}`}
-        style={!hasScrollbar() ? { overflowY: "hidden" } : {}}
-      >
-        {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center text-white/40">
-              <div className="text-4xl mb-2">💬</div>
-              <p className="text-sm">No messages yet</p>
-              <p className="text-xs mt-1">Say hi to start the conversation</p>
-            </div>
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-xl">
+            ⚠️
           </div>
-        ) : (
-          messages.map((msg, idx) => (
-            <div
-              key={msg.id || idx}
-              className={`flex ${msg.senderId === userId ? "justify-end" : "justify-start"}`}
-            >
-              <div className="max-w-[80%]">
-                <div
-                  className={`rounded-2xl px-4 py-2 ${
-                    msg.senderId === userId
-                      ? "bg-blue-500 text-white"
-                      : "bg-white/10 text-white"
-                  }`}
-                >
-                  <p className="text-sm break-words">{msg.message}</p>
-                </div>
-                <div
-                  className={`flex items-center gap-1 mt-1 text-xs ${msg.senderId === userId ? "justify-end" : "justify-start"}`}
-                >
-                  <span className="text-white/40">
-                    {formatTime(msg.timestamp)}
-                  </span>
-                  {getReadStatus(msg, idx) && (
-                    <span className="text-blue-400">
-                      {getReadStatus(msg, idx)}
-                    </span>
-                  )}
-                </div>
+          <div>
+            <h2 className="text-white font-semibold">Remove Match</h2>
+            <p className="text-white/40 text-xs">This cannot be undone</p>
+          </div>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="bg-red-500/10 border-2 border-red-500 rounded-2xl p-6 max-w-md w-full">
+            <div className="text-center mb-4">
+              <div className="text-5xl mb-2">💔</div>
+              <h2 className="text-2xl font-bold text-red-500">
+                Remove {match.name}?
+              </h2>
+              <p className="text-white/60 mt-2 text-sm">
+                This will permanently delete:
+              </p>
+            </div>
+
+            <div className="space-y-2 mb-6">
+              <div className="bg-black/50 rounded-xl p-3">
+                <p className="text-white/80 text-sm">
+                  • All messages between you
+                </p>
+                <p className="text-white/80 text-sm">
+                  • This match from your list
+                </p>
+                <p className="text-white/80 text-sm">
+                  • {match.name} will also lose this match
+                </p>
               </div>
             </div>
-          ))
-        )}
-        <div ref={messagesEndRef} />
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRemoveConfirm(false)}
+                disabled={removing}
+                className="flex-1 bg-white/10 text-white font-semibold py-3 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRemoveMatch}
+                disabled={removing}
+                className="flex-1 bg-red-500 text-white font-semibold py-3 rounded-xl hover:bg-red-600 transition-all disabled:opacity-50"
+              >
+                {removing ? "Removing..." : "Remove Forever"}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
+    );
+  }
 
-      <form
-        onSubmit={handleSendMessage}
-        className="p-4 border-t border-white/10 flex gap-2 bg-black relative"
-      >
-        <button
-          type="button"
-          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          className="bg-white/10 hover:bg-white/20 rounded-full w-11 h-11 flex items-center justify-center transition-all"
+  return (
+    <>
+      {showMessageMenu && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-full z-40" />
+      )}
+      {showMessageMenu && selectedMessage && selectedMessageRect && (
+        <div
+          className="fixed z-45"
+          style={{
+            left: `${selectedMessageRect.left}px`,
+            top: `${selectedMessageRect.top}px`,
+            width: `${selectedMessageRect.width}px`,
+          }}
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        </button>
+          <div className="relative">
+            <div
+              className={`rounded-2xl px-4 py-2 ${
+                selectedMessage.senderId === userId
+                  ? "bg-blue-500 text-white"
+                  : "bg-white/10 text-white"
+              }`}
+              style={{ opacity: 1 }}
+            >
+              <p className="text-sm break-words">{selectedMessage.message}</p>
+            </div>
+            <div className="flex justify-end gap-1 mt-1 text-xs">
+              <span className="text-white/40">
+                {formatTime(selectedMessage.timestamp)}
+              </span>
+              {getReadStatus(selectedMessage, 0) && (
+                <span className="text-blue-400">
+                  {getReadStatus(selectedMessage, 0)}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-        {showEmojiPicker && (
-          <div className="absolute bottom-16 left-4 z-50">
-            <EmojiPicker
-              onEmojiClick={onEmojiClick}
-              width={300}
-              height={400}
-              theme="dark"
-              previewConfig={{ showPreview: false }}
-              searchPlaceholder="Search emojis..."
-              skinTonesDisabled={true}
-            />
+      <div className="fixed inset-0 bg-black flex flex-col z-50">
+        {showMessageMenu && (
+          <div
+            ref={messageMenuRef}
+            className="fixed z-50 bg-zinc-900 rounded-xl shadow-lg border border-white/10 overflow-hidden"
+            style={{
+              left: `${menuPosition.x}px`,
+              top: `${menuPosition.y + messageHeight + 55}px`,
+              minWidth: "140px",
+            }}
+          >
+            <button
+              onClick={handleCopyMessage}
+              className="w-full text-left px-4 py-2 text-white/80 hover:bg-white/10 transition-all text-sm flex items-center gap-3"
+            >
+              <IconCopy size={18} />
+              Copy message
+            </button>
+            {isOwnMessage && (
+              <button
+                onClick={handleDeleteMessage}
+                className="w-full text-left px-4 py-2 text-red-400 hover:bg-white/10 transition-all text-sm flex items-center gap-3"
+              >
+                <IconTrash size={18} />
+                Delete message
+              </button>
+            )}
           </div>
         )}
 
-        <input
-          ref={inputRef}
-          type="text"
-          value={newMessage}
-          onChange={(e) => {
-            setNewMessage(e.target.value);
-            handleTyping();
-          }}
-          placeholder="Type a message..."
-          className="flex-1 bg-white/10 border border-white/20 rounded-full px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all text-sm"
-          maxLength={500}
-        />
-        <button
-          type="submit"
-          disabled={!newMessage.trim() || sending}
-          className="bg-blue-500 text-white w-10 h-10 rounded-full pl-1 pb-1 flex items-center justify-center hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <svg
-            className="w-5 h-5 rotate-45"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="bg-black/95 border-b border-white/10 px-4 py-3 flex items-center gap-3">
+          <button onClick={onBack} className="text-white flex items-center">
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+
+          <button
+            onClick={viewProfile}
+            className="flex items-center gap-3 flex-1 active:opacity-70"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-            />
-          </svg>
-        </button>
-      </form>
-    </div>
+            {match.photos && match.photos[0] ? (
+              <img
+                src={match.photos[0]}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xl">
+                👤
+              </div>
+            )}
+
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                <h2 className="text-white font-semibold">{match.name}</h2>
+                {isMuted && <IconBellOff size={16} className="text-white/60" />}
+              </div>
+              <p className={`text-xs ${getStatusColor()}`}>{getStatusText()}</p>
+            </div>
+          </button>
+
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="text-white/60 hover:text-white transition-all p-2"
+            >
+              <IconDots size={20} />
+            </button>
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-zinc-900 rounded-xl shadow-lg border border-white/10 overflow-hidden z-20">
+                <button
+                  onClick={handleMute}
+                  className="w-full text-left px-4 py-3 text-white/80 hover:bg-white/10 transition-all text-sm flex items-center gap-3"
+                >
+                  {isMuted ? (
+                    <>
+                      <IconBell size={18} className="text-white/80" />
+                      Unmute
+                    </>
+                  ) : (
+                    <>
+                      <IconBellOff size={18} className="text-white/80" />
+                      Mute
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleDeleteChat}
+                  className="w-full text-left px-4 py-3 text-red-400 hover:bg-white/10 transition-all text-sm flex items-center gap-3"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                  Delete chat
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto p-4 space-y-2"
+          style={{
+            transition: "filter 0.2s",
+          }}
+        >
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-white/40">
+                <div className="text-4xl mb-2">💬</div>
+                <p className="text-sm">No messages yet</p>
+                <p className="text-xs mt-1">Say hi to start the conversation</p>
+              </div>
+            </div>
+          ) : (
+            messages.map((msg, idx) => {
+              const isSelected =
+                showMessageMenu && selectedMessage?.id === msg.id;
+              return (
+                <div
+                  key={msg.id || idx}
+                  className={`flex ${msg.senderId === userId ? "justify-end" : "justify-start"}`}
+                  onContextMenu={(e) => handleMessageContextMenu(e, msg)}
+                  style={{
+                    filter: isSelected
+                      ? "none"
+                      : showMessageMenu
+                        ? "blur(4px)"
+                        : "none",
+                    transition: "filter 0.2s",
+                  }}
+                >
+                  <div className="max-w-[80%]">
+                    <div
+                      className={`rounded-2xl px-4 py-2 ${
+                        msg.senderId === userId
+                          ? "bg-blue-500 text-white"
+                          : "bg-white/10 text-white"
+                      }`}
+                    >
+                      <p className="text-sm break-words">{msg.message}</p>
+                    </div>
+                    <div
+                      className={`flex items-center gap-1 mt-1 text-xs ${msg.senderId === userId ? "justify-end" : "justify-start"}`}
+                    >
+                      <span className="text-white/40">
+                        {formatTime(msg.timestamp)}
+                      </span>
+                      {getReadStatus(msg, idx) && (
+                        <span className="text-blue-400">
+                          {getReadStatus(msg, idx)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <form
+          onSubmit={handleSendMessage}
+          className="p-4 border-t border-white/10 flex gap-2 bg-black relative"
+          style={{
+            filter: showMessageMenu ? "blur(4px)" : "none",
+            transition: "filter 0.2s",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="bg-white/10 hover:bg-white/20 rounded-full w-11 h-11 flex items-center justify-center transition-all"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </button>
+
+          {showEmojiPicker && (
+            <div
+              ref={emojiPickerRef}
+              className="absolute bottom-16 left-4 z-50"
+            >
+              <EmojiPicker
+                onEmojiClick={onEmojiClick}
+                width={300}
+                height={400}
+                theme="dark"
+                previewConfig={{ showPreview: false }}
+                searchPlaceholder="Search emojis..."
+                skinTonesDisabled={true}
+              />
+            </div>
+          )}
+
+          <input
+            ref={inputRef}
+            type="text"
+            value={newMessage}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              handleTyping();
+              const target = e.target;
+              target.style.height = "auto";
+              target.style.height = target.scrollHeight + "px";
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage(e);
+                setTimeout(() => {
+                  if (inputRef.current) {
+                    inputRef.current.style.height = "auto";
+                  }
+                }, 0);
+              }
+            }}
+            placeholder="Type a message..."
+            className="flex-1 bg-white/10 border border-white/20 rounded-full px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-all text-sm"
+            style={{
+              minHeight: "48px",
+              height: "auto",
+              overflow: "hidden",
+            }}
+            rows="1"
+            maxLength={500}
+          />
+          <button
+            type="submit"
+            disabled={!newMessage.trim() || sending}
+            className="bg-blue-500 text-white w-10 h-10 rounded-full pl-1 pb-1 flex items-center justify-center hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg
+              className="w-5 h-5 rotate-45"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+              />
+            </svg>
+          </button>
+        </form>
+      </div>
+    </>
   );
 }
 

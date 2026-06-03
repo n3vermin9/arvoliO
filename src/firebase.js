@@ -864,3 +864,8 @@ export const isChatMuted = async (matchId, userId) => {
   }
   return false;
 };
+
+export const deleteMessage = async (matchId, messageId) => {
+  const messageRef = doc(db, "chats", matchId, "messages", messageId);
+  await deleteDoc(messageRef);
+};

@@ -1,13 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { searchUsersByUsername, getUserData } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import starLogo from "../assets/star.png";
 
-function SearchModal({ onClose, currentUserId }) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [results, setResults] = useState([]);
+function SearchModal({
+  onClose,
+  currentUserId,
+  initialSearchState,
+  onNavigateToProfile,
+}) {
+  const [searchTerm, setSearchTerm] = useState(
+    initialSearchState?.searchTerm || "",
+  );
+  const [results, setResults] = useState(initialSearchState?.results || []);
   const [loading, setLoading] = useState(false);
   const [userMatches, setUserMatches] = useState([]);
+  const [scrollPosition, setScrollPosition] = useState(
+    initialSearchState?.scrollPosition || 0,
+  );
+  const resultsContainerRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,10 +32,16 @@ function SearchModal({ onClose, currentUserId }) {
   }, [currentUserId]);
 
   useEffect(() => {
+    if (resultsContainerRef.current && scrollPosition > 0) {
+      resultsContainerRef.current.scrollTop = scrollPosition;
+    }
+  }, [scrollPosition]);
+
+  useEffect(() => {
     const delayDebounce = setTimeout(() => {
       if (searchTerm.length >= 1) {
         performSearch();
-      } else {
+      } else if (searchTerm.length === 0) {
         setResults([]);
       }
     }, 300);
@@ -47,15 +64,30 @@ function SearchModal({ onClose, currentUserId }) {
   };
 
   const handleUserClick = (userId) => {
-    navigate(`/profile/${userId}`);
-    onClose();
+    const searchState = {
+      searchTerm: searchTerm,
+      results: results,
+      scrollPosition: resultsContainerRef.current?.scrollTop || 0,
+    };
+    if (onNavigateToProfile) {
+      onNavigateToProfile(userId, searchState);
+    } else {
+      navigate(`/profile/${userId}`);
+      onClose();
+    }
+  };
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       <div className="px-4 pt-4 pb-2 bg-black">
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="text-white">
+          <button onClick={handleClose} className="text-white">
             <svg
               className="w-6 h-6"
               fill="none"
@@ -98,7 +130,7 @@ function SearchModal({ onClose, currentUserId }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div ref={resultsContainerRef} className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <img src={starLogo} className="w-12 h-12 animate-spin" />
